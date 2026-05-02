@@ -10,6 +10,7 @@
 http://db6e997b-1b79-49dc-b771-3ec16052b7a6.node5.buuoj.cn:81/
 ```
 
+![](assets/11-你传你m呢-deepseek/file-20260503031433850.png)
 ## 解题过程
 
 ### 1. 信息收集 — 访问首页
