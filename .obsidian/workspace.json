@@ -11,10 +11,14 @@
             "id": "932310144eadc657",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "靶机/QQGroup/111/111.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "新标签页"
+              "title": "111"
             }
           }
         ]
@@ -90,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "靶机/QQGroup/111/111.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "反向链接"
+              "title": "111 的反向链接列表"
             }
           },
           {
@@ -108,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "靶机/QQGroup/111/111.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "出链"
+              "title": "111 的出链列表"
             }
           },
           {
@@ -150,12 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "靶机/QQGroup/111/111.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "大纲"
+              "title": "111 的大纲"
             }
           },
           {
@@ -187,27 +194,53 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "3e98aa0eebcf4124",
+  "active": "932310144eadc657",
   "lastOpenFiles": [
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110194658.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110194213.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110190727.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110190422.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110185335.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110185038.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110184828.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110184612.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110184446.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110184352.png",
+    "靶机/vulnhub/DC/DC9/images/Pasted image 20260110183945.png",
+    "靶机/vulnhub/Game-of-Thrones/images/扫描结果.md",
+    "靶机/vulnhub/DC/DC9/DC9.md",
+    "靶机/vulnhub/DC/DC9/images",
+    "靶机/vulnhub/DC/DC8/images",
+    "靶机/vulnhub/DC/DC8/DC8.md",
+    "靶机/vulnhub/DC/DC7/images",
+    "靶机/vulnhub/DC/DC7/DC7.md",
+    "靶机/vulnhub/covfefe/images",
+    "靶机/vulnhub/covfefe/covfefe_yuque.md",
+    "靶机/vulnhub/covfefe/covfefe.md",
+    "靶机/vulnhub/Game-of-Thrones/images",
+    "靶机/vulnhub/Memory/Memory.md",
+    "靶机/vulnhub/Game-of-Thrones/Game-of-Thrones.md",
+    "靶机/vulnhub/DC/DC9",
+    "靶机/vulnhub/DC/DC8",
+    "靶机/vulnhub/DC/DC7",
+    "靶机/vulnhub/covfefe",
+    "靶机/vulnhub/Memory",
+    "靶机/QQGroup/Type/Type.md",
+    "靶机/QQGroup/Moddle/Moddle.md",
+    "靶机/QQGroup/React/React.md",
+    "靶机/QQGroup/Mosh/Mosh.md",
+    "靶机/QQGroup/112/112.md",
+    "靶机/QQGroup/Hellman/Hellman.md",
+    "靶机/QQGroup/Happiness/Happiness.md",
+    "靶机/QQGroup/113/113.md",
+    "靶机/QQGroup/114/114.md",
+    "靶机/QQGroup/111/111.md",
     "BUUCTF/WEB/demo2.md",
     "BUUCTF/WEB/9-BabySQL.md",
     "BUUCTF/WEB/8-[ACTF2020 新生赛]upload2.md",
     "BUUCTF/WEB/7-knife.md",
     "BUUCTF/WEB/6-upload.md",
     "BUUCTF/WEB/6-upload-deepseek.md",
-    "BUUCTF/WEB/5-http.md",
-    "BUUCTF/WEB/4-sql注入-随便注.md",
-    "BUUCTF/WEB/3-php绕过-Secret File.md",
-    "BUUCTF/WEB/2-php代码审计-WarmUp.md",
-    "BUUCTF/WEB/11-你传你m呢-deepseek.md",
-    "BUUCTF/WEB/10-你传你m呢.md",
-    "BUUCTF/WEB/1-easySQL.md",
-    "BUUCTF/WEB/_attachments/Pasted image 20260502231817.png",
-    "BUUCTF/WEB/demo1.md",
-    "BUUCTF/WEB/_attachments/Pasted image 20260502231629.png",
-    "BUUCTF/WEB/_attachments",
-    "BUUCTF/WEB",
-    "靶机",
-    "BUUCTF"
+    "BUUCTF/WEB/5-http.md"
   ]
 }
