@@ -21,7 +21,12 @@
       "Bash(ln -s \"/Users/zhaochoudemao/Documents/CTF/0-VM/obsidian/assets\" \"/Users/zhaochoudemao/Dropbox/blog/source/assets\")",
       "Bash(cat)",
       "Bash(chmod +x /tmp/add_frontmatter.sh)",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "WebFetch(domain:1f3ba66d-6213-4166-bc56-2df4c0d4749d.node5.buuoj.cn)",
+      "Bash(curl -s -i \"http://1f3ba66d-6213-4166-bc56-2df4c0d4749d.node5.buuoj.cn:81/\")",
+      "Bash(curl *)",
+      "Read(//tmp/**)",
+      "Bash(pip3 install *)"
     ]
   }
 }
