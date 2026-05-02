@@ -15,7 +15,9 @@
       "Bash(hexo g *)",
       "Bash(hexo d *)",
       "WebFetch(domain:zhaochoudecat.github.io)",
-      "Bash(find public *)"
+      "Bash(find public *)",
+      "Bash(file *)",
+      "Bash(hexo clean *)"
     ]
   }
 }
