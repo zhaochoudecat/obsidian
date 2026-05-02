@@ -1,3 +1,11 @@
+---
+title: "7- Knife (菜刀)"
+date: 2026-05-02
+categories:
+ - BUUCTF
+ - WEB
+---
+
 # 7- Knife (菜刀)
 
 **题目名称:** 白给的shell

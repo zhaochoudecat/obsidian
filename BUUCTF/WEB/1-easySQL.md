@@ -5,7 +5,7 @@ categories:
  - BUUCTF
  - WEB
 ---
-![](assets/file-20260503033135627.png)
+![](assets/file-20260503034103228.png)
 # CTF WriteUp: [极客大挑战 2019] EasySQL
 
 ## 题目信息

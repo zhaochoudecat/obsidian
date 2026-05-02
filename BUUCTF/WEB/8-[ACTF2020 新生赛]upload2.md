@@ -1,3 +1,11 @@
+---
+title: 8-[ACTF2020 新生赛]upload2
+date: 2026-05-02
+categories:
+  - BUUCTF
+  - WEB
+---
+
 # [ACTF2020 新生赛]upload2
 
 ## 题目信息

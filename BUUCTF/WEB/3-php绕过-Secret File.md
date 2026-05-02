@@ -1,3 +1,11 @@
+---
+title: "Secret File - PHP文件包含漏洞"
+date: 2026-05-02
+categories:
+ - BUUCTF
+ - WEB
+---
+
 # Secret File - PHP文件包含漏洞
 
 ## 题目信息

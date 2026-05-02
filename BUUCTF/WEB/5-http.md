@@ -1,3 +1,11 @@
+---
+title: "[极客大挑战 2019]Http"
+date: 2026-05-02
+categories:
+ - BUUCTF
+ - WEB
+---
+
 # [极客大挑战 2019]Http
 
 ## 题目描述

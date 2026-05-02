@@ -1,3 +1,11 @@
+---
+title: 9-BabySQL
+date: 2026-05-02
+categories:
+  - BUUCTF
+  - WEB
+---
+
 # CTF WriteUp: BabySQL
 
 ## 题目信息

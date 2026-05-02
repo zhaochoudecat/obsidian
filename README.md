@@ -1,3 +1,8 @@
+---
+title: "AI CTF "
+date: 2026-05-02
+---
+
 # AI CTF 
 
 作为CTF专家，我将协助你攻破目标靶机并获取两个flag文件（user.txt和root.txt）。以下是详细的攻击方案：

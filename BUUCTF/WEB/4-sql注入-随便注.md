@@ -1,3 +1,11 @@
+---
+title: "CTF SQL注入 - 随便注"
+date: 2026-05-02
+categories:
+ - BUUCTF
+ - WEB
+---
+
 # CTF SQL注入 - 随便注
 
 ## 题目信息
