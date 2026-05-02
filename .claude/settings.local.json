@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh repo *)",
+      "WebSearch",
+      "Bash(python3 *)",
+      "Bash(rmdir /Users/zhaochoudemao/Dropbox/blog/source/_posts)",
+      "Bash(ln -s /Users/zhaochoudemao/Documents/CTF/0-VM/obsidian /Users/zhaochoudemao/Dropbox/blog/source/_posts)",
+      "Read(//Users/zhaochoudemao/Dropbox/blog/**)",
+      "Bash(hexo g *)",
+      "Bash(hexo d *)",
+      "WebFetch(domain:zhaochoudecat.github.io)",
+      "Bash(find public *)"
+    ]
+  }
+}
