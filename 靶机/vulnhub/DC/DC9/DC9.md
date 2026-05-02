@@ -11,7 +11,7 @@ Starting arp-scan 1.10.0 with 256 hosts (https://github.com/royhills/arp-scan)
 192.168.3.45    08:00:27:95:4e:a9       PCS Systemtechnik GmbH
 ```
 
-![[Pasted image 20260110175100.png]]
+![](images/Pasted%20image%2020260110175100.png)
 ### nmap
 
 ```bash
@@ -56,9 +56,9 @@ Task Completed
 ## 2.sqlmap
 
 发现search页面，可以输入，推测有注入点
-![[Pasted image 20260110180142.png]]
+![](images/Pasted%20image%2020260110180142.png)
 注意到post请求，页面url没变，同时burp也有提示post请求，这时有两个方法去测试sqlmap注入
-![[Pasted image 20260110180103.png]]
+![](images/Pasted%20image%2020260110180103.png)
 
 ---
 
@@ -312,30 +312,30 @@ Table: Users
 ```
 
 `password`看上去是`md5`，`somd5.com`在线爆破一下，结果是`transorbital1`
-![[Pasted image 20260110183639.png]]
+![](images/Pasted%20image%2020260110183639.png)
 ## 3.登录
 
 登录进来发现只是多了几个按钮，增加记录，没有什么作用
-![[Pasted image 20260110183945.png]]
+![](images/Pasted%20image%2020260110183945.png)
 ### /etc/passwd
 找到`file`真实路径,下面只是演示
-![[Pasted image 20260110184446.png]]
+![](images/Pasted%20image%2020260110184446.png)
 手动添加`payload`, 如`../../../etc/passwd`
-![[Pasted image 20260110184612.png]]
+![](images/Pasted%20image%2020260110184612.png)
 可以看到在`../../../../etc/passwd` 时`length`开始变化, 找到真实路径
-![[Pasted image 20260110184828.png]]
+![](images/Pasted%20image%2020260110184828.png)
 或者`url`上面多加一些根目录也是可以的
-![[Pasted image 20260110185038.png]]
+![](images/Pasted%20image%2020260110185038.png)
 ### /etc/ssh/sshd_config
 查看`etc/ssh/sshd_config`配置文件，浏览器搜索`root`,查看有用的信息，可以发现不允许`root`远程`ssh`登录
 
-![[Pasted image 20260110185335.png]]
+![](images/Pasted%20image%2020260110185335.png)
 ### /proc/sched_debug
 将页面上的数据复制，然后到`kali` 中，执行`vi b.txt`, 粘贴进去
 ```
 http://192.168.3.45/addrecord.php?file=../../../../proc/sched_debug
 ```
-![[Pasted image 20260110190422.png]]
+![](images/Pasted%20image%2020260110190422.png)
 将数据处理后可以看到`knockd`的服务
 ```bash
 ┌──(root㉿kali)-[~/localkali/testpayload]
@@ -554,7 +554,7 @@ User fredf may run the following commands on dc-9:
 
 
 查看本地的`/etc/sudoers`
-![[Pasted image 20260110194213.png]]
+![](images/Pasted%20image%2020260110194213.png)
 
 直接查看`/opt/devstuff/dist/test/test`发现是乱码，到上级目录发现是`python`文件编译的，直接查看源码`test.py`
 ```

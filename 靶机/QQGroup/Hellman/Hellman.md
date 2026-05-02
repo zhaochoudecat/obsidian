@@ -28,5 +28,5 @@ PORT     STATE SERVICE VERSION
 ```
 
 结合名称，一眼考察Diffie-Hellman 原理
-![[Pasted image 20260127142318.png]]
+![](images/Pasted%20image%2020260127142318.png)
 

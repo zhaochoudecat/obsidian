@@ -13,9 +13,9 @@ PORT     STATE SERVICE
 ```
 
 访问80和3000端口，无发现
-![[Pasted image 20260107183905.png]]
+![](images/Pasted%20image%2020260107183905.png)
 
-![[Pasted image 20260107183833.png]]
+![](images/Pasted%20image%2020260107183833.png)
 ## 2.漏洞
 POC链接：`https://github.com/msanft/CVE-2025-55182/`
 
@@ -60,7 +60,7 @@ print(res.text)
 ```
 
 本地先`nc -lvnp 1111` 然后执行一下`python`文件
-![[Pasted image 20260107222416.png]]
+![](images/Pasted%20image%2020260107222416.png)
 ## 3.升级shell
 ```shell
 ┌──(zsc@kali)-[~] 
@@ -167,7 +167,7 @@ SCAN SUMMARY
 strings /usr/bin/check_key
 ```
 直接执行无回显，看下里面的可打印字符
-![[Pasted image 20260107221501.png]]
+![](images/Pasted%20image%2020260107221501.png)
 
 可以看到`cp /root/Reactrootpass.txt /opt`,尝试读取`/root/Reactrootpass.txt`，使用上面的读取命令
 ```bash

