@@ -1,5 +1,5 @@
 ---
-title: "[极客大挑战 2019]Http"
+title: 5-[极客大挑战 2019]Http
 date: 2026-05-02
 categories:
   - BUUCTF

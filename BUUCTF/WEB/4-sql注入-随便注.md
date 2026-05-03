@@ -1,5 +1,5 @@
 ---
-title: CTF SQL注入 - 随便注
+title: 4-CTF SQL注入 - 随便注
 date: 2026-05-02
 categories:
   - BUUCTF

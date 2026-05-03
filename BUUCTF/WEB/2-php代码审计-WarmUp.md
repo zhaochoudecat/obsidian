@@ -1,5 +1,5 @@
 ---
-title: CTF - PHP代码审计 WarmUp 题解
+title: 2-CTF - PHP代码审计 WarmUp 题解
 date: 2026-05-02
 categories:
   - BUUCTF

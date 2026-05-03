@@ -1,5 +1,5 @@
 ---
-title: 12-admin
+title: 11-admin
 date: 2026-05-03
 categories:
   - BUUCTF

@@ -1,5 +1,5 @@
 ---
-title: 11-BUUCTF - 你传你m呢 (文件上传漏洞) deepseek
+title: 10-BUUCTF - 你传你m呢 (文件上传漏洞) deepseek
 date: 2026-05-02
 categories:
   - BUUCTF

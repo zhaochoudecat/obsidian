@@ -1,5 +1,5 @@
 ---
-title: BUUCTF - 文件上传绕过实战 (上传头像)
+title: 6-BUUCTF - 文件上传绕过实战 (上传头像)
 date: 2026-05-02
 categories:
   - BUUCTF
