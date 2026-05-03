@@ -4,6 +4,9 @@ date: 2026-05-02
 categories:
   - BUUCTF
   - WEB
+tags:
+  - sql注入
+  - CTF
 ---
 
 # CTF WriteUp: BabySQL

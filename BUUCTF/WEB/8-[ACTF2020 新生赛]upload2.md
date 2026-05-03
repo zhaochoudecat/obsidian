@@ -4,6 +4,9 @@ date: 2026-05-02
 categories:
   - BUUCTF
   - WEB
+tags:
+  - web
+  - CTF
 ---
 
 # [ACTF2020 新生赛]upload2

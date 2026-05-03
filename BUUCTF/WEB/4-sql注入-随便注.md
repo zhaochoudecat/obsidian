@@ -1,9 +1,12 @@
 ---
-title: "CTF SQL注入 - 随便注"
+title: CTF SQL注入 - 随便注
 date: 2026-05-02
 categories:
- - BUUCTF
- - WEB
+  - BUUCTF
+  - WEB
+tags:
+  - sql注入
+  - CTF
 ---
 
 # CTF SQL注入 - 随便注

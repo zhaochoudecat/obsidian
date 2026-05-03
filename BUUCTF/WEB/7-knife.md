@@ -1,9 +1,12 @@
 ---
-title: "7- Knife (菜刀)"
+title: 7- Knife (菜刀)
 date: 2026-05-02
 categories:
- - BUUCTF
- - WEB
+  - BUUCTF
+  - WEB
+tags:
+  - web
+  - CTF
 ---
 
 # 7- Knife (菜刀)

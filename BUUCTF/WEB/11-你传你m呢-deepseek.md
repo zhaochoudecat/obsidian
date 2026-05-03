@@ -4,6 +4,9 @@ date: 2026-05-02
 categories:
   - BUUCTF
   - WEB
+tags:
+  - web
+  - CTF
 ---
 
 # BUUCTF - 你传你m呢 (文件上传漏洞) Writeup

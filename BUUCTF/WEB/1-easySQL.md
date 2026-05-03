@@ -4,6 +4,9 @@ date: 2026-05-02
 categories:
  - BUUCTF
  - WEB
+tags:
+ - CTF
+ - sql注入
 ---
 ![](assets/file-20260503034103228.png)
 # CTF WriteUp: [极客大挑战 2019] EasySQL
