@@ -5,6 +5,7 @@ categories:
   - 靶机
   - vulnhub
 tags:
+  - Vulnhub
 ---
 
 # Breakout
