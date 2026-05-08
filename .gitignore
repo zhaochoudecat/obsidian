@@ -1,3 +1,6 @@
 .obsidian/
 templates/
+private/
+*-private.md
 修改内容-*.md
+
