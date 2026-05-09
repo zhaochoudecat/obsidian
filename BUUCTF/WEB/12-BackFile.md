@@ -5,7 +5,7 @@ categories:
   - BUUCTF
   - WEB
 tags:
-  - web
+  - CTF
 aliases:
   - 备份文件泄露
 ---
