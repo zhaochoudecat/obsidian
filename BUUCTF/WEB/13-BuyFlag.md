@@ -90,7 +90,6 @@ curl -s -X POST http://target/pay.php -d "password=404abc"
     语法：`curl -D 文件名 URL`
 2. **`-`（连字符）**
     是 `-D` 参数的**特殊值**，代表**标准输出（stdout，也就是终端屏幕）**，而不是本地文件。
-
 ---
 
 ## 完整命令 & 效果
