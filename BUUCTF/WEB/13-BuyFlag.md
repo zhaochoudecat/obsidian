@@ -2,7 +2,7 @@
 title: BUUCTF - BuyFlag
 date: 2026-05-09
 ctf: BUUCTF
-category: WEB
+category:
 difficulty: 中等
 tags:
   - CTF
