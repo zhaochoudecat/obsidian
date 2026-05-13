@@ -1,11 +1,12 @@
 ---
 title: BUUCTF - BuyFlag
 date: 2026-05-09
-ctf: BUUCTF
 category:
+ - BUUCTF
+ - WEB
 difficulty: 中等
 tags:
-  - CTF
+ - CTF
 ---
 
 ## 题目描述
