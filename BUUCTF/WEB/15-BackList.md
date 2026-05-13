@@ -198,7 +198,7 @@ flag{93632c25-ed42-48e1-ab37-25559d736d2d}
 | `extractvalue()` | MariaDB 错误注入函数，用于读取无回显数据 |
 | `HANDLER` | MariaDB 表读取语句，可绕过 SELECT 黑名单 |
 | `SHOW TABLES/COLUMNS` | 枚举数据库结构，无需 SELECT |
-| `||` 运算符 | 替代 OR，绕过关键词过滤 |
+| `| |` 运算符 | 替代 OR，绕过关键词过滤 |
 
 ### HANDLER 绕过原理
 
