@@ -7,7 +7,7 @@ tags:
   - SSRF
   - PHP反序列化
   - WAF绕过
-created: 2026-05-13
+date: 2026-05-13
 categories:
   - BUUCTF
   - WEB
