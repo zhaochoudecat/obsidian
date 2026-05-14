@@ -134,7 +134,38 @@ view.php?no=1 order by 5     → 报错 → 4 列
 
 ### Step 2：构造序列化 Payload
 
-把 `blog` 属性改成 `file:///var/www/html/flag.php`，**注意修改字符串长度**：
+**为什么要序列化？** `view.php` 的代码流程：
+
+```
+SELECT data FROM users WHERE no = $no
+        ↓
+unserialize($data)  →  还原为 UserInfo 对象
+        ↓
+$obj->getBlogContents()  →  curl_exec($blog_url)  →  SSRF 读文件
+```
+
+SQL 注入只能控制 `data` 列的值，而代码里固定走 `unserialize()` → `getBlogContents()` 这条链。所以注入的 payload 必须是一个**合法的 PHP 序列化字符串**，否则 `unserialize()` 返回 false，后续 curl 不会执行。
+
+**序列化格式来源：** PHP 内置 `serialize()` 函数的输出格式。正常注册一个账号后，`data` 列会存储 `UserInfo` 对象的序列化结果，查看页面源码即可拿到原始字符串。
+
+**格式逐段拆解：**
+
+```
+O:8:"UserInfo":3:{s:4:"name";s:5:"admin";s:3:"age";i:18;s:4:"blog";s:22:"https://www.baidu.com/";}
+│ │    │        │  │ │      │ │      │ │      │ │      │ │
+│ │    │        │  │ │      │ │      │ │      │ │      │ └── 值："https://www.baidu.com/"
+│ │    │        │  │ │      │ │      │ │      │ └── s:22 = string，长度 22
+│ │    │        │  │ │      │ │      │ └── 键名："blog"（4 字符，所以 s:4）
+│ │    │        │  │ │      │ └── i:18 = integer，年龄 18
+│ │    │        │  │ └── s:3:"age" — 键名长度 3
+│ │    │        │  └── s:5:"admin" — 值，长度 5
+│ │    │        └── s:4:"name" — 键名长度 4
+│ │    └── 类名 "UserInfo"（8 个字符）
+│ └── 类名长度 = 8
+└── O = Object（还有 a=array, s=string, i=integer, b=boolean, N=NULL）
+```
+
+**修改 payload：** 把 `blog` 改成 `file:///var/www/html/flag.php`，**必须同步修正长度前缀**，否则反序列化失败：
 
 原始序列化（blog 是正常 URL 时，长度 22）：
 ```
@@ -204,3 +235,44 @@ getBlogContents() → curl_exec(file://) → SSRF 读 flag
 3. 不要将 `.bak` 等备份文件放在 Web 可访问目录
 4. 反序列化前验证数据完整性，或使用 JSON
 5. 关闭 PHP 错误回显
+
+## Q&A
+
+### Q1: 为什么要序列化？我直接放 `file:///xxx` URL 不行吗？
+
+不行。`view.php` 的代码是：
+
+```php
+$data = $row['data'];           // 1. 从数据库取出 data 列
+$obj = unserialize($data);      // 2. 反序列化为 UserInfo 对象
+echo $obj->getBlogContents();   // 3. 调用方法 → curl_exec(blog 属性)
+```
+
+所以 SQL 注入控制的是 `data` 列，但代码**固定**会对其执行 `unserialize()`。如果你注入的不是合法序列化字符串，`unserialize()` 返回 false，第二步就断了，`getBlogContents()`（也就是 `curl_exec`）根本不会执行。
+
+**这条链是题目代码决定的，不是攻击者能选的。** 要触发 SSRF，就必须走通 `unserialize` → `getBlogContents` → `curl_exec` 这条路。
+
+### Q2: 序列化字符串 `O:8:"UserInfo":3:` 每一段是什么意思？
+
+```
+O:8:"UserInfo":3:{s:4:"name";s:5:"admin";s:3:"age";i:18;s:4:"blog";s:29:"file:///var/www/html/flag.php";}
+```
+
+PHP 序列化格式速查：
+
+| 前缀 | 含义 | 示例 |
+|------|------|------|
+| `O` | Object（对象） | `O:8:"UserInfo":3:{}` |
+| `a` | Array（数组） | `a:2:{...}` |
+| `s` | String（字符串） | `s:4:"name"` |
+| `i` | Integer（整数） | `i:18` |
+| `b` | Boolean（布尔） | `b:1` 或 `b:0` |
+| `N` | NULL | `N;` |
+
+**`O:8:"UserInfo":3:`** 拆解：`O` = 对象, `8` = 类名 "UserInfo" 的长度, `:3:` = 对象有 3 个属性。
+
+**关键规则：** `s:N:"value"` 中的 `N` 必须等于引号内字符串的**字符数**。你把 blog 值从 `https://www.baidu.com/`（22 字符）改成 `file:///var/www/html/flag.php`（29 字符），`s:22:` 就必须同步改成 `s:29:`，否则 PHP 解析序列化字符串时长度不匹配，直接失败。
+
+### Q3: 怎么拿到原始序列化字符串？
+
+正常注册一个账号，首页会显示用户列表。查看页面源码，`data` 列的值就是 `serialize()` 输出的原生格式。拿它做模板，只改 blog 的值和对应长度即可。
