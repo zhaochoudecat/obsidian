@@ -31,6 +31,10 @@ HTTP 头关键信息：`Server: openresty`、`X-Powered-By: PHP/5.6.40`
 
 ### robots.txt 泄露源码
 
+```python
+dirsearch -u http://b53f20e1-2cdd-4e61-b74d-8fa40c05e0dd.node5.buuoj.cn:81/
+```
+![](assets/file-20260514110515300.png)
 访问 `/robots.txt`：
 
 ```
