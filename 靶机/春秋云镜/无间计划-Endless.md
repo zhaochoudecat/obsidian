@@ -46,4 +46,7 @@ PORT     STATE    SERVICE      VERSION
 Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 ```
 
-101.132.149.233
+## 反弹
+https://fushuling.com/index.php/2024/02/10/__trashed/  靶机博客
+https://guokeya.github.io/post/WscncUrcS/  漏洞原理
+![](assets/file-20260529154404715.png)
