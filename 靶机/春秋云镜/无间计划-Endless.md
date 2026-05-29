@@ -200,6 +200,8 @@ start vulscan
 
 # flag02
 
+参考这篇 [靶机WP博客](https://h0ny.github.io/posts/%E6%97%A0%E9%97%B4%E8%AE%A1%E5%88%92-Endless-%E6%98%A5%E7%A7%8B%E4%BA%91%E5%A2%83/)
+
 
 ![](assets/file-20260529165047140.png)
 ![](assets/file-20260529165531264.png)
