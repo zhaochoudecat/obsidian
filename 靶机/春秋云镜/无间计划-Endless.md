@@ -422,17 +422,16 @@ flag{Do_you_kown_oracle_rce?}
 readme.txt
 ![](assets/file-20260601164509668.png)
 
-```
-usera@pentest.me
-Admin3gv83
-```
+
 
 # flag03
 
 结合之前扫描结果和刚才的账号密码，登录`172.23.4.12`
 ```
-SMB         172.23.4.12     445    IZMN9U6ZO3VTRNZ  [*] Windows Server 2022 Build 20348 (name:IZMN9U6ZO3VTRNZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+usera@pentest.me
+Admin3gv83
 ```
+
 ![](assets/file-20260601170539508.png)
 
 ```
@@ -556,4 +555,76 @@ flag{id_rsa_so_useful!}
 
 ```
 flag{id_rsa_so_useful!}
+```
+
+
+# flag05
+
+这里在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
+换种方式直接在172.23.4.12上运行`.\fscan.exe -h 172.24.7.16/24 `
+![](assets/file-20260601193742404.png)
+
+```bash
+172.24.7.43:139 open
+172.24.7.5:139 open
+172.24.7.16:139 open
+172.24.7.3:139 open
+172.24.7.48:135 open
+172.24.7.43:135 open
+172.24.7.5:135 open
+172.24.7.3:135 open
+172.24.7.16:135 open
+172.24.7.23:80 open
+172.24.7.3:80 open
+172.24.7.27:22 open
+172.24.7.23:22 open
+172.24.7.48:445 open
+172.24.7.43:445 open
+172.24.7.5:445 open
+172.24.7.16:445 open
+172.24.7.3:445 open
+172.24.7.5:88 open
+172.24.7.3:88 open
+172.24.7.23:8060 open
+172.24.7.27:8091 open
+172.24.7.27:8090 open
+172.24.7.23:9094 open
+[*] NetInfo 
+[*]172.24.7.16
+   [->]IZMN9U6ZO3VTRNZ
+   [->]172.23.4.12
+   [->]172.24.7.16
+[*] WebTitle http://172.24.7.23        code:502 len:3039   title:GitLab is not responding (502)
+[*] NetInfo 
+[*]172.24.7.48
+   [->]IZAYSXE6VCUHB4Z
+   [->]172.24.7.48
+[*] NetInfo 
+[*]172.24.7.3
+   [->]DC
+   [->]172.24.7.3
+   [->]172.25.12.9
+[*] NetBios 172.24.7.5      [+] DC:DCadmin.pen.me                Windows Server 2016 Standard 14393
+[*] NetInfo 
+[*]172.24.7.43
+   [->]IZMN9U6ZO3VTRPZ
+   [->]172.24.7.43
+   [->]172.26.8.12
+[*] NetInfo 
+[*]172.24.7.5
+   [->]DCadmin
+   [->]172.25.12.7
+   [->]172.24.7.5
+[*] WebTitle http://172.24.7.23:8060   code:404 len:555    title:404 Not Found
+[*] OsInfo 172.24.7.3	(Windows Server 2016 Standard 14393)
+[*] NetBios 172.24.7.3      [+] DC:DC.pentest.me                 Windows Server 2016 Standard 14393
+[*] NetBios 172.24.7.48     PENTEST\IZAYSXE6VCUHB4Z       
+[*] NetBios 172.24.7.43     PENTEST\IZMN9U6ZO3VTRPZ       
+[*] OsInfo 172.24.7.5	(Windows Server 2016 Standard 14393)
+[*] WebTitle http://172.24.7.27:8091   code:204 len:0      title:None
+[*] WebTitle http://172.24.7.27:8090   code:302 len:0      title:None 跳转url: http://172.24.7.27:8090/login.action?os_destination=%2Findex.action&permissionViolation=true
+[*] WebTitle http://172.24.7.3         code:200 len:703    title:IIS Windows Server
+[+] PocScan http://172.24.7.3 poc-yaml-active-directory-certsrv-detect 
+[+] InfoScan http://172.24.7.27:8090/login.action?os_destination=%2Findex.action&permissionViolation=true [ATLASSIAN-Confluence] 
+
 ```
