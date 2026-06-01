@@ -637,3 +637,13 @@ flag{id_rsa_so_useful!}
 172.24.7.43 IZMN9U6ZO3VTRPZ
 172.24.7.48 IZAYSXE6VCUHB4Z
 ```
+
+刚才的172.23.4.12中edge浏览器发现密码
+```
+admin
+confluence_ichunqiu_2022
+```
+![](assets/file-20260601222259431.png)
+
+### 发现名单
+![](assets/file-20260601222726038.png)
