@@ -625,3 +625,14 @@ flag{id_rsa_so_useful!}
 [+] InfoScan http://172.24.7.27:8090/login.action?os_destination=%2Findex.action&permissionViolation=true [ATLASSIAN-Confluence] 
 
 ```
+
+整理下
+```
+172.24.7.16 拿下
+172.24.7.3 DC
+172.24.7.5 DCadmin
+172.24.7.23
+172.24.7.27
+172.24.7.43 IZMN9U6ZO3VTRPZ
+172.24.7.48 IZAYSXE6VCUHB4Z
+```
