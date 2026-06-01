@@ -558,6 +558,7 @@ flag{id_rsa_so_useful!}
 
 这里在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
 换种方式直接在172.23.4.12上运行`.\fscan.exe -h 172.24.7.16/24 `
+`172.24.7.16`访问不到原因 https://www.doubao.com/thread/w0a279de411cdee37
 ![](assets/file-20260601193742404.png)
 
 ```bash
