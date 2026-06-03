@@ -713,9 +713,14 @@ IOXIDRES... 172.24.7.3      445    DC               Address: 172.25.12.9
 ```
 
 查询 pentest.me 域中所有 DNS 记录，分析域内网络环境：
-用下面的会报错
-```
-proxychains4 -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me -ns 172.24.7.3 -M get-network -o ALL=true
+
+```bash
+proxychains4  -f /usr/local/etc/proxychains.conf -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me --dns-server 172.24.7.3 -M get-network -o ALL=true
+LDAP        172.24.7.3      389    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me) (signing:None) (channel binding:Never) 
+LDAP        172.24.7.3      389    DC               [+] pentest.me\usera:Admin3gv83 
+GET-NETWORK 172.24.7.3      389    DC               [*] Querying zone for records
+GET-NETWORK 172.24.7.3      389    DC               Found 9 records
+GET-NETWORK 172.24.7.3      389    DC               [+] Dumped 9 records to /Users/zhaochoudemao/.nxc/logs/pentest.me_network_2026-06-03_163823.log
 ```
  
 用 ldapsearch（原生、最稳、无依赖）
