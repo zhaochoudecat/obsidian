@@ -75,6 +75,16 @@ for param in p page file path name include inc action m s a c; do
 done
 # 所有参数均返回相同首页，无一例外
 ```
+用 for 循环遍历一个参数名列表，这些参数在 Web 应用中常用于：
+- p / page — 页面路由
+- file / path — 文件包含（LFI）
+- name — 用户/资源标识
+- include / inc — PHP include 相关
+- action / a — 动作路由
+- m — module（模块）
+- s — section/source
+- c — category / controller
+
 
 尝试枚举常见 PHP 文件名：
 
@@ -102,18 +112,42 @@ flag.php: 404
 
 ## 2.1 访问 `/img/` 目录
 
-页面中唯一的线索是 `<img src="img/img.gif">`。访问 `/img/`：
+页面中唯一的线索是 `<img src="img/img.gif">`。既然存在 `/img/img.gif`，那 `/img/` 这个目录路径很可能也可达。尝试直接访问目录本身：
 
 ```bash
 curl -s "http://TARGET/img/"
 ```
 
-返回了 Nginx 的目录浏览页面：
+返回的不是 403 Forbidden，也不是 404，而是一个 HTML 页面：
 
 ```
 Index of /img/
 ../
 img.gif     04-Oct-2018 05:55    456384
+```
+
+### 如何据此判断 `autoindex on`
+
+Nginx 对目录请求的默认行为是 **403 Forbidden**（`autoindex off`）。只有当显式配置了 `autoindex on;` 时，Nginx 才会自动生成并返回目录列表页面。
+
+```
+请求 /img/（无 index 文件时）
+
+autoindex off（默认）        autoindex on
+      ↓                          ↓
+  403 Forbidden          200 OK + 文件列表 HTML
+```
+
+两个对照实验可以验证这个判断：
+
+```bash
+# 实验 1：访问存在的目录 → 返回 200 + 文件列表
+curl -s -o /dev/null -w "%{http_code}" "http://TARGET/img/"
+# 200  ← 不是 403，说明 autoindex 是 on
+
+# 实验 2：访问不存在的目录 → 返回 404（对比确认 403 不会出现）
+curl -s -o /dev/null -w "%{http_code}" "http://TARGET/nonexist/"
+# 404  ← 目录不存在，而非权限拒绝
 ```
 
 **关键发现**：Nginx 开启了 `autoindex on`（自动目录索引），且 `/img/` 下只有一个 `img.gif`。
