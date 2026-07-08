@@ -351,8 +351,8 @@ CTF2{5e04f572-a6fe-426c-8b73-5a157702029a}
                ↓
 ┌─────────────────────────────────┐
 │ name=../../../proc/self/environ │
-│ → 绕过 flag 过滤 → 读到环境变量  │
-│ → FLAG=CTF2{5e04f572-...} 🎯   │
+│ → 绕过 flag 过滤 → 读到环境变量    │
+│ → FLAG=CTF2{5e04f572-...} 🎯    │
 └──────────────┬──────────────────┘
                ↓
 ┌─────────────────────────────────┐
@@ -362,3 +362,186 @@ CTF2{5e04f572-a6fe-426c-8b73-5a157702029a}
 │   find('flag') 黑名单过滤不足    │
 └─────────────────────────────────┘
 ```
+
+# 附录：解题关键思路答疑
+
+以下是解题过程中几个关键决策的详细思路复盘，记录完整的推理过程。
+
+## 附录 A：怎么确认是 Flask Session？
+
+确认 Flask Session 有三重证据，层层递进，最终由源码直接证实。
+
+### 证据 1：Cookie 格式特征（最直观的指纹）
+
+```
+eyJuMWNvZGUiOm51bGx9.ak3NTA.MGZUGLJg0CSrnhFxA1rYHrLD0z8
+         ↓                    ↓        ↓
+      payload            timestamp  signature
+```
+
+Flask 底层使用 `itsdangerous` 库对 session 签名，固定输出 **`base64编码的JSON.时间戳.HMAC签名`** 的三段式结构。这是 Flask 独有的指纹特征，其他框架没有这种 `A.B.C` 结构：
+
+| 框架 | Session 格式 | 示例 |
+|------|-------------|------|
+| **Flask** | `payload.timestamp.signature` | `eyJ...9.ak3NTA.MGZ...` |
+| PHP | 无签名，引用服务端存储 | `PHPSESSID=r4nd0m` |
+| Java (Tomcat) | 32位 hex 引用 | `JSESSIONID=A5F3B9C2...` |
+| Express | `s%3A...` 格式 | `s%3Axxx.yyy` |
+| Django | 也是三段式但无 timestamp 段 | `eyJ...:1pG...:...` |
+
+看到 `session=xxx.yyy.zzz` 三段式，第一反应就是 Flask。这是一个经验性判断：PHP/Java 的 session cookie 只是一个随机 ID，没有签名结构；Express 用的是 `s:` 前缀；Django 的三段式中间那段不含时间戳而是哈希盐值。`payload.timestamp.signature` 这种格式，只有 Flask（itsdangerous 库）在用。
+
+### 证据 2：第一段 Base64 解码结果是 JSON
+
+```bash
+echo "eyJuMWNvZGUiOm51bGx9" | base64 -d
+# 输出：{"n1code":null}
+```
+
+Flask Session 存储的就是 Python dict 的 JSON 表示。而且 JSON 中的 key 名 `n1code` 和我们输入的表单参数名完全对应——这说明后端把用户提交的 `n1code` 参数值存进了 session，这正是 Flask 的行为模式。
+
+### 证据 3：后来读到的源码直接证实
+
+```python
+from flask import Flask, session
+from flask_session import Session  # Flask-Session 扩展
+
+app = Flask(__name__)
+app.secret_key = key               # Flask 签名所需的 secret_key
+
+session['n1code'] = n1code         # 直接把表单值写入 session
+```
+
+源码白纸黑字写着 `from flask import Flask, session`，以及 `session['n1code'] = n1code`。到这一步就不再是"推断"而是"证实"了。
+
+### 判断链总结
+
+```
+看到 Set-Cookie: session=xxx.yyy.zzz
+         ↓
+观察到三段式 A.B.C 结构（排除 PHP/Java/Express）
+         ↓
+第一段 base64 解码 → JSON 对象（排除 Django）
+         ↓
+JSON 中 key 名 = 表单参数名 → 确认是业务 session
+         ↓
+结论：100% Flask Session ✅
+```
+
+最终源码验证了这个判断完全正确。这也是信息收集中 **"通过外部特征反推内部技术栈"** 的典型手法——不需要看到代码，通过框架的协议特征就能判断底层技术。
+
+## 附录 B：怎么推导出 `../../../home/sssssserver/server.py` 这个路径？
+
+这个路径不是猜出来的，也不是枚举暴力穷举出来的，而是一步步「拼图」拼出来的。整个过程用了两块关键信息。
+
+### 第一块拼图：基础路径（来自错误信息）
+
+最早尝试 `name=app.py` 时：
+
+```bash
+curl -s "TARGET/article?name=app.py"
+```
+
+返回的错误信息直接暴露了文件系统路径：
+
+```
+[Errno 2] No such file or directory: '/home/nu11111111l/articles/app.py'
+```
+
+这里有一个重要技巧：**错误信息是最诚实的侦察兵**。很多 CTF 题目和实际渗透中，报错信息会泄露文件系统路径、数据库表名、代码堆栈等敏感信息。这条错误直接告诉我们：`/home/nu11111111l/articles/` 是文件读取的基础路径。
+
+### 第二块拼图：工作目录（来自环境变量）
+
+然后读取 `/proc/self/environ` 时：
+
+```
+PWD=/home/sssssserver    ← 进程的当前工作目录
+```
+
+`PWD`（Present Working Directory）是 Linux 进程的环境变量，记录着进程启动时所在的目录。对于 Python Web 应用，`PWD` 通常就是 `app.py` 或 `server.py` 所在的目录。
+
+### 两块拼图一合
+
+```
+基础路径:   /home/nu11111111l/articles/
+工作目录:   /home/sssssserver/
+
+目标文件:   /home/sssssserver/server.py   (Flask 应用通常叫 app.py / server.py / main.py)
+
+从基础路径出发计算相对路径:
+  /home/nu11111111l/articles/
+      ..      → /home/nu11111111l/
+      ../..   → /home/
+      ../../.. → /                          (回到根目录)
+                  ↓ 从根再往下走
+      ../../../home/sssssserver/server.py   ← 最终路径
+```
+
+### 文件系统树形图解
+
+```
+/  (根目录)
+├── home/
+│   ├── nu11111111l/
+│   │   └── articles/        ← 基础路径（错误信息暴露）
+│   │       └── article      ← 默认读取的文件
+│   └── ssssssserver/        ← PWD 环境变量（/proc/self/environ 暴露）
+│       ├── server.py        ← 目标！应用入口
+│       ├── flag.py          ← flag 定义文件
+│       └── key.py           ← 密钥文件
+└── proc/
+    └── self/
+        └── environ           ← 先读这个拿到了 PWD，再反推出源码路径
+```
+
+**总结**：不是碰运气猜的，而是 `错误信息暴露基础路径` + `/proc/self/environ 暴露 PWD` → 两条信息组合精确推导出完整路径。每个 `../` 都是根据已知的目录层级精确计算出来的。这是渗透测试中「信息关联分析」的典型应用——单条信息可能无意义，但多条信息组合起来就能拼出完整的攻击路径。
+
+## 附录 C：为什么想到 `/proc/self/environ`？拿到 flag 后为什么还要分析源码？
+
+### 为什么想到 `/proc/self/environ`？
+
+这不是灵机一动，是 **Linux LFI 标准清单**里的常规项。当确认了路径穿越可用后，脑内自动跑的是一套按优先级排列的检查清单，这套清单是在大量 CTF 解题和实际渗透中积累下来的：
+
+```
+LFI 能读文件了，先看什么？
+
+第一梯队（证明危害，验证可达性）：
+  /etc/passwd          → 经典验证文件，确认路径穿越可达系统级文件
+  /etc/hostname        → 确认是否在容器/虚拟机中
+
+第二梯队（找 flag 常用位置，CTF 最高频）：
+  /flag                → CTF 惯例：flag 直接放根目录
+  /flag.txt            → 同上，文本格式
+  /root/flag           → root 目录下的 flag
+  ../../flag           → 从当前目录往上翻，多层尝试
+  /var/www/html/flag   → Web 目录下的 flag
+
+第三梯队（flag 不在文件里怎么办？换个思路）：
+  /proc/self/environ   → 环境变量里可能有 FLAG
+  /proc/self/cmdline   → 启动命令可能带 flag 参数
+  /proc/self/fd/*      → 打开的文件描述符里可能残留已读内容
+  .env                 → 应用配置里可能有硬编码的 flag
+  config.py            → Python 配置文件
+  app.py / server.py   → 源码里可能写着 flag
+
+第四梯队（代码执行层面）：
+  /proc/self/mem       → 进程内存（需要特定条件）
+  /var/log/*           → 日志文件可能记录了 flag
+```
+
+做多了就知道 — **CTF 里的 flag 就藏在这几个地方：文件、环境变量、数据库、源码注释**。`/proc/self/environ` 是环境变量这条路的入口，而且它有一个天然优势：路径中不含 "flag" 字符串，不会被 `find('flag')` 黑名单拦截。
+
+这次运气好也不好——好的是直接命中了 flag 所在位置（环境变量），不好的是第二条路径被黑名单挡住了（`find('flag')` 拦截了直接读 `/flag`），但正是这个拦截逼着跳到了第三梯队，反而一击命中。**黑名单防护很多时候不是在阻止攻击，而是在给攻击者指路——它告诉你"flag 这个方向是对的，换条路走"。**
+
+关于 `/proc/self/environ` 的技术原理补充：Linux 的 `/proc` 是一个伪文件系统（pseudo-filesystem），不占用磁盘空间，所有内容都是内核在读取时实时生成的。`/proc/self` 是指向当前进程的符号链接，`/proc/self/environ` 包含了进程启动时的完整环境变量列表。Python 的 `execfile()` 函数有一个关键副作用——它在当前模块的全局命名空间中执行代码，所以 `flag.py` 里定义的 `flag` 变量就变成了 `server.py` 进程环境的一部分，自然也就出现在了 `/proc/self/environ` 中。
+
+### 拿到 flag 后为什么还要分析源码？
+
+这个问题问得很实在——**纯拿 flag 的话，源码分析确实不是必须的**。拿到 flag 那一刻任务就完成了。继续读源码有两个原因：
+
+| 原因 | 详细说明 |
+|------|---------|
+| **WP 需要讲清漏洞根因** | 写 WP 不能只写"我读了个文件就拿到 flag"，那叫运气帖，不叫 Writeup。WP 的核心价值在于解释**为什么能读到**、**为什么绕过成功**。源码里那行 `page.find('flag')>=0` 解释了为什么 `name=../flag` 被拦截、为什么 `name=../../../proc/self/environ` 能绕过——没有源码证据，这些解释都只是推测而非证实。裁判/读者看到源码级别的漏洞分析，才能确认你真的理解了这道题，而不是碰运气撞到的。 |
+| **方法论习惯** | 找到 flag 是 CTF 比赛的终点，但搞清楚「为什么能拿到」才是学习者的起点。同一个漏洞类型（路径穿越 + 黑名单绕过），换一个靶机，flag 位置变了、黑名单规则变了、基础路径变了——如果只知道"读 environ 能拿 flag"这个结论，换一题就不会了。但如果你理解了源码层面的根因——`open()` 直接拼接用户输入没有路径规范化、`find()` 黑名单天然可绕过——那无论题目怎么变，你都知道怎么去推理和构造攻击。**结论会过时，方法论不会。** |
+
+简单说：**为了写一份合格的 WP，而不是一篇"我猜中了"的运气贴；为了学到能应对下一题的思路，而不是只记住这一题的答案。**
