@@ -103,7 +103,7 @@ curl -s -i "https://TARGET/n1page" -d "n1code={{7*7}}"
   ↓
 验证 1：curl /article?name=../flag → 返回 "no permission!"
   ↓
-分析：不是 "not found"，而是 "no permission" — 说明文件存在但有过滤
+分析：不是 "No such file"，而是 "no permission" — 说明文件存在但有过滤
   ↓
 验证 2：curl /article?name=app.py → 返回详细错误信息
   ↓
@@ -122,12 +122,7 @@ curl -s -i "https://TARGET/n1page" -d "n1code={{7*7}}"
 
 **漏洞位置**：`/article` 端点的 `name` 参数
 
-**保护机制**：源码中存在对 "flag" 字符串的过滤
-
-```python
-if page.find('flag') >= 0:
-    page = 'notallowed.txt'
-```
+**保护机制**：源码中对 `name` 参数做了 `find('flag')` 黑名单检查，含 "flag" 字符串的请求会被替换为 `notallowed.txt`。
 
 **绕过方法**：读取 `/proc/self/environ`（进程环境变量），该路径不含 "flag" 字符串，但环境变量中存储了 `FLAG`。
 
@@ -209,7 +204,7 @@ app.secret_key = key
 | `/article?name=../flag` | 读取 flag 文件 | "no permission!" | flag 字符串被过滤 |
 | `/article?name=../../flag` | 读取上层 flag | "no permission!" | 同上（含 "flag"） |
 | `/article?name=../app.py` | 读取源码 | No such file | 源码不在上级目录 |
-| 枚举 robots.txt/.git 等 | 发现隐藏文件 | 命令执行问题 | 非枚举方向 |
+| 枚举 robots.txt/.git 等 | 发现隐藏文件 | 本地 shell 循环脚本错误（非靶机拦截） | 未完成枚举 |
 
 # 4. 漏洞利用
 
@@ -240,22 +235,7 @@ FLAG=CTF2{5e04f572-a6fe-426c-8b73-5a157702029a}
 curl -s "https://TARGET/article?name=../../../home/sssssserver/server.py"
 ```
 
-**源码关键发现**：
-
-```python
-execfile('flag.py')         # 执行 flag.py，将 flag 值导入进程环境
-execfile('key.py')          # 执行 key.py，获取 Flask secret_key
-
-FLAG = flag                  # flag 值存入变量
-app.secret_key = key         # 密钥存入 app 配置
-
-@app.route('/article', methods=['GET'])
-def article():
-    if page.find('flag') >= 0:   # 仅过滤文件名中的 "flag"
-        page = 'notallowed.txt'
-    template = open('/home/nu11111111l/articles/{}'.format(page)).read()
-    # ↑ 未对路径进行规范化，存在路径穿越
-```
+完整源码及分析见上文 [3.3 源码分析](#33-源码分析)。
 
 ## 4.4 其他可读取的敏感信息
 
@@ -545,3 +525,152 @@ LFI 能读文件了，先看什么？
 | **方法论习惯** | 找到 flag 是 CTF 比赛的终点，但搞清楚「为什么能拿到」才是学习者的起点。同一个漏洞类型（路径穿越 + 黑名单绕过），换一个靶机，flag 位置变了、黑名单规则变了、基础路径变了——如果只知道"读 environ 能拿 flag"这个结论，换一题就不会了。但如果你理解了源码层面的根因——`open()` 直接拼接用户输入没有路径规范化、`find()` 黑名单天然可绕过——那无论题目怎么变，你都知道怎么去推理和构造攻击。**结论会过时，方法论不会。** |
 
 简单说：**为了写一份合格的 WP，而不是一篇"我猜中了"的运气贴；为了学到能应对下一题的思路，而不是只记住这一题的答案。**
+
+## 附录 D：路径穿越知识点详解
+
+### 一句话原理
+
+> 程序用用户输入拼接文件路径时，没有做路径规范化，导致 `../` 可以跳出预定目录，读取到任意系统文件。
+
+### 正常情况 vs 攻击情况
+
+先看一个最简单的例子。假设一个网站提供文件下载功能：
+
+```python
+# 后端代码
+filename = request.args.get('file')
+return open('/var/www/files/' + filename).read()
+```
+
+```
+正常请求: /download?file=report.pdf
+┌────────────────────────────────────────┐
+│ 拼接: /var/www/files/ + report.pdf     │
+│ 结果: /var/www/files/report.pdf        │
+│ 效果: 读取 files 目录下的 report.pdf ✅ │
+└────────────────────────────────────────┘
+
+攻击请求: /download?file=../../../etc/passwd
+┌────────────────────────────────────────┐
+│ 拼接: /var/www/files/ + ../../../etc/passwd  │
+│ 结果: /var/www/files/../../../etc/passwd     │
+│ 化简: /etc/passwd  ← 穿出去了！              │
+│ 效果: 读取到系统密码文件 ❌                    │
+└────────────────────────────────────────┘
+```
+
+核心问题就一行代码：**用户输入被直接拼进了文件路径**。
+
+### 为什么 `../` 能穿出去？
+
+这是 Linux 文件系统本身的机制，不是漏洞程序独有的：
+
+```bash
+# 在任何 Linux 终端里都一样
+pwd                          # → /home/user/docs
+cat ../photos/pic.jpg        # → /home/user/photos/pic.jpg ✅ 正常功能
+cat ../../../etc/passwd      # → /etc/passwd ✅ 穿到系统目录了
+```
+
+`..` 在文件系统中表示「上级目录」，这是操作系统级别的设计。路径穿越漏洞的本质是：**程序没有限制用户只能在自己的目录里用 `..`，用户自然可以一路 `../` 穿到根目录**。
+
+### JSON 版本的类比
+
+如果觉得文件路径抽象，用 JSON 对象来类比：
+
+```python
+# 程序想让你只能访问这个目录
+base = {"home": {"files": {"report.pdf": "内容"}}}
+
+# 设计意图：你只能读 base["home"]["files"][用户输入]
+# 正常：base["home"]["files"]["report.pdf"] → "内容" ✅
+
+# 但如果输入是 ../../../etc/passwd
+# 就变成了 base["home"]["files"]["../../../etc/passwd"]
+# 而操作系统把它解析为 /etc/passwd ❌
+```
+
+程序员的意图是 `file` 目录下的一个文件名，但操作系统不理解这个意图，它只忠实地解析了整个路径。
+
+### 本题 afr_3 的具体情况
+
+回到这道题的源码：
+
+```python
+page = request.args.get('name')         # 用户输入，没有过滤
+open('/home/nu11111111l/articles/{}'.format(page)).read()
+```
+
+```
+请求: /article?name=article
+┌──────────────────────────────────────────────────┐
+│ 路径: /home/nu11111111l/articles/article          │
+│ 结果: 读取指定的文章文件 ✅                         │
+└──────────────────────────────────────────────────┘
+
+请求: /article?name=../../../proc/self/environ
+┌──────────────────────────────────────────────────┐
+│ 拼接: /home/nu11111111l/articles/../../../proc/self/environ │
+│ 化简: /proc/self/environ                          │
+│ 结果: 读取到进程环境变量（含 FLAG）❌               │
+└──────────────────────────────────────────────────┘
+```
+
+每个 `../` 往上跳一级目录，三级 `../../../` 从 `/home/nu11111111l/articles/` 回到了根目录 `/`，然后从根目录往下走到 `/proc/self/environ`。
+
+### 常见的过滤与绕过
+
+开发者意识到问题后通常会加过滤，但过滤往往不彻底：
+
+| 过滤方式 | 代码 | 为什么能绕过 |
+|---------|------|------------|
+| 黑名单 `../` | `input.replace('../', '')` | 嵌套绕过：`....//` → 替换后变 `../` |
+| 黑名单 `flag` | `if 'flag' in input: deny`（本题） | 读 `/proc/self/environ` 不含 `flag` 却能泄漏 FLAG 环境变量 |
+| 白名单后缀 | `if not input.endswith('.pdf'): deny` | 截断绕过：`../../../etc/passwd%00.pdf`（空字节截断，老版本） |
+| 绝对路径检查 | `if input.startswith('/'): deny` | 相对路径照样穿：`../../../etc/passwd` |
+| URL 编码过滤 | 只过滤 `../` | 编码绕过：`%2e%2e%2f` = `../` |
+
+**本题的绕过**属于第二种——黑名单只拦了字符串 `flag`，但 flag 的真正位置在环境变量里，`/proc/self/environ` 路径里没有 `flag` 这个词，直接绕过。
+
+### 正确的修复方式
+
+不是「把 `../` 过滤掉」——黑名单永远不靠谱。正确做法是**路径规范化 + 白名单前缀校验**：
+
+```python
+import os
+
+base = '/home/nu11111111l/articles/'
+
+# 步骤1：把用户输入拼进基础路径
+full_path = os.path.join(base, page)
+
+# 步骤2：解析掉所有 ../ 和符号链接，得到真实路径
+real_path = os.path.realpath(full_path)
+
+# 步骤3：检查真实路径是否还在基础目录内
+if not real_path.startswith(base):
+    raise Exception("Access denied")
+
+# 步骤4：安全读取
+return open(real_path).read()
+```
+
+测试攻击路径 `page = "../../../etc/passwd"`：
+
+```
+os.path.join(base, page)
+  → /home/nu11111111l/articles/../../../etc/passwd
+
+os.path.realpath(...)
+  → /etc/passwd    ← 规范化后直接到了根目录
+
+real_path.startswith(base)
+  → /etc/passwd 不以 /home/nu11111111l/articles/ 开头
+  → Access denied ❌
+```
+
+核心思想：**不猜用户想干嘛，让操作系统把路径规整后，看结果是否还在允许范围内。**
+
+### 一句话总结
+
+> 路径穿越 = 用户输入直接拼进文件路径 + 未做规范化。`../` 不是漏洞，它是文件系统的正常功能。漏洞在于开发者信任了用户的输入不会利用这个功能。
