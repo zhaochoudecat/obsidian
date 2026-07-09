@@ -1,6 +1,6 @@
 ---
 name: ctf2
-description: CTF 解题方法论 skill。当需要按专业渗透测试流程完成 CTF 挑战时调用。强调从信息收集→漏洞探测→利用→Flag 的全链路推理，包含失败路径记录、推理链可视化和解题链路总结。
+description: CTF 解题方法论 skill。手动调用，按专业渗透测试流程完成 CTF 挑战。强调从信息收集→漏洞探测→利用→Flag 的全链路推理，包含失败路径记录、推理链可视化和解题链路总结。
 allowed-tools: Bash, WebFetch, WebSearch, Read, Write, Edit
 ---
 
