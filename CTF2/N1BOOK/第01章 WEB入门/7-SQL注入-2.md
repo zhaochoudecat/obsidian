@@ -474,7 +474,7 @@ curl -s "TARGET/login.php?tips=1" \
   -d "pass=1"
 # → XPATH syntax error: '~n1book{login_sqli_is_nice}'
 ```
-
+![](assets/file-20260710144343230.png)
 ## 4.5 数据库结构总结
 
 ```
