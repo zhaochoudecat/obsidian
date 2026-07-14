@@ -215,10 +215,34 @@ ssh aliyun-root "cat /root/flag_out.txt"
 # n1book{6fa82809179d7f19c67259aa285a7729}
 ```
 
-### 恢复阿里云
+### 恢复阿里云（清理后台进程）
 
 ```bash
-ssh aliyun-root "systemctl start httpd"   # 恢复 Apache
+ssh aliyun-root "
+# 杀掉 Python HTTP server 和 nc 监听
+pkill -f 'python3 -m http.server'
+pkill -f 'nc -lvp'
+# 恢复 Apache
+systemctl start httpd
+"
+```
+
+逐条说明：
+
+| 命令 | 作用 |
+|------|------|
+| `pkill -f 'python3 -m http.server'` | 关闭 Python HTTP 服务（释放 80 端口） |
+| `pkill -f 'nc -lvp'` | 关闭 nc 监听（释放 1111 端口） |
+| `systemctl start httpd` | 恢复 Apache Web 服务 |
+
+验证清理结果：
+
+```bash
+# 检查端口状态（应该没有 python3 或 nc 占用了）
+ss -tlnp | grep -E ':80 |:1111'
+
+# Apache 应该正常监听 80
+curl -s -o /dev/null -w "%{http_code}" http://101.132.149.233/
 ```
 
 ## 4.3 注入 Payload 字符审计
