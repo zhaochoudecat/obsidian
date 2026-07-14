@@ -20,11 +20,29 @@ tags:
 
 ## HTTP 响应头关键信息
 
+所有请求使用 `curl -s -i` 获取（`-i` 参数打印 HTTP 响应头，否则只输出 body，响应头信息会被遗漏）。
+
+```bash
+curl -s -i "http://TARGET/level1?username=xss"
+```
+
+Level 1 的响应头：
+
+```
+HTTP/2 200
+server: openresty
+x-powered-by: Express
+x-xss-protection: 0          ← 仅 Level 1 出现
+set-cookie: connect.sid=...
+```
+
 | 响应头 | 值 | 说明 |
 |--------|-----|------|
 | `Server` | `openresty` | Nginx 系 Web 服务器 |
 | `X-Powered-By` | `Express` | **Node.js 后端**（非 PHP） |
-| `X-XSS-Protection` | `0`（Level 1） | XSS 过滤器被主动禁用 |
+| `Set-Cookie` | `connect.sid=...` | Express 会话 Cookie，说明有服务端 Session 机制 |
+
+> `X-XSS-Protection: 0` 仅在 Level 1 出现（其他关没有），是题目作者给出的**提示信号**而非关卡通过的必要条件——Level 1 的注入本身无任何服务端过滤，浏览器 XSS 过滤器开或关都不影响攻击成功。
 
 ## 首页分析
 
@@ -82,12 +100,13 @@ curl -s "http://TARGET/level2?username=test"
 
 **源码逻辑**：
 - `username` 参数通过 amis 模板引擎直接回显到页面 HTML 中
-- `X-XSS-Protection: 0` 禁用了浏览器 XSS 过滤器
+- 注意到 Level 1 响应头包含 `X-XSS-Protection: 0`（通过 `curl -i` 发现，仅此关有，其他关无）
 
 **推理链**：
 
 ```
-线索：X-XSS-Protection: 0 + username 直接回显到 HTML
+线索 1：X-XSS-Protection: 0（通过 curl -i 看到）→ 题目作者明确放行 XSS
+线索 2：username 直接回显到 HTML → 典型反射型注入点
   ↓
 假设：无过滤的反射型 XSS
   ↓
@@ -97,6 +116,8 @@ curl -s "http://TARGET/level2?username=test"
   ↓
 结论：Level 1 无任何过滤 ✅
 ```
+
+> `X-XSS-Protection: 0` 是**提示信号**而非通过条件。即使浏览器 XSS 过滤器开启，此题注入本身没有任何服务端防护，攻击依然会成功。这个头字段更多是题目作者留给解题者的「欢迎来到 XSS 关卡」的暗示。
 
 **注意**：`<script>` 标签通过 innerHTML 方式注入不会执行，需使用事件触发型标签。
 
