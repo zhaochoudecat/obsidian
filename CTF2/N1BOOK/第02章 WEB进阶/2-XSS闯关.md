@@ -246,6 +246,28 @@ if(getQueryVariable('autosubmit') !== false){
 }
 ```
 
+**逐行拆解**：
+
+| 行 | 代码 | 作用 |
+|----|------|------|
+| 1 | `if(getQueryVariable('autosubmit') !== false)` | 检查 URL 是否带了 `autosubmit` 参数。没带则跳过整个 if 块，什么都不发生 |
+| 2 | `var autoForm = document.getElementById('autoForm')` | 获取页面上的 `<form id="autoForm">` 元素 |
+| 3 | `autoForm.action = getQueryVariable('action') ? getQueryVariable('action') : location.href` | 三元表达式：URL 里有 `action` 参数 → 用它的值；没有 → 用当前页面地址 |
+| 4 | `autoForm.submit()` | 自动提交表单，浏览器跳转到 `action` 指定的地址 |
+
+**`form.action` 是什么？**
+
+`action` 是 HTML 表单的提交目标属性。正常情况下它是一个 HTTP URL（如 `/submit`），表单提交时浏览器跳转到那个地址。但代码没有校验协议，如果你传 `action=javascript:alert(1)`：
+
+```
+autoForm.action = "javascript:alert(1)"   // ← 提交目标变成了 JS 代码
+autoForm.submit()                          // ← 提交表单 → 浏览器执行 javascript: 伪协议
+```
+
+`javascript:` 伪协议告诉浏览器「别提交表单，执行后面的 JS」。`alert(1)` 被执行，通关。
+
+> **与 Level 4 对比**：两者都是 `javascript:` 伪协议注入，区别仅在触发方式 —— Level 4 靠 `location.href` 赋值触发，Level 5 靠 `form.submit()` 触发。
+
 **推理链**：
 
 ```
