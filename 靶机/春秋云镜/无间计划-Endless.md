@@ -582,6 +582,8 @@ PS C:\Users\usera\.ssh> type .\known_hosts
 ```
 
 ## 登录172.23.4.19
+
+此处需要登录proxifier
 ```bash
 ☁  endless  chmod 600 id_rsa          
 ☁  endless  ls -la
