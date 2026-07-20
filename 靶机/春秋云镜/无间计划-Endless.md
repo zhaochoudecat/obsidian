@@ -434,7 +434,8 @@ proxychains4 telnet 172.23.4.32 445
 ```
 
 ### 五、扫描
-#### 1.挂上代理，扫描内网：
+#### 1.挂上代理，扫描内网
+这里用mac本地的shell （kali一直失败）
 ```bash
 ~  proxychains4 -q nxc smb 172.23.4.0/24
 SMB         172.23.4.51     445    iZzvg0io6q1o5hZ  [*] Windows Server 2022 Build 20348 x64 (name:iZzvg0io6q1o5hZ) (domain:iZzvg0io6q1o5hZ) (signing:False) (SMBv1:False)
