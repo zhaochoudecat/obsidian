@@ -714,7 +714,7 @@ confluence_ichunqiu_2022
 前面提到在kali用代理运行`proxychains4 -q nxc smb 172.24.7.16/24`一直检测不到，
 下面开始在`172.23.4.12`上==**打洞**==,将 `gost.exe` 重命名为 `update.exe` 或 `svchost.exe`，在 `172.23.4.12 `的 shell 中执行：
 ```
-.\update.exe -L socks5://0.0.0.0:1080
+./update.exe -L socks5://0.0.0.0:1080
 ```
 
 ![](file-20260708144517104.png)
