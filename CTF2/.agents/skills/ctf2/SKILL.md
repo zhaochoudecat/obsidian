@@ -1,0 +1,1 @@
+../../../.claude/skills/ctf2/SKILL.md

@@ -318,6 +318,7 @@ AngularJS 1.4.6 使用沙箱限制表达式中的危险操作。可通过 `const
 - `.constructor` → 获取 Object 的构造函数（Function）
 - `('alert(1)')()` → 调用 Function 构造器创建并执行代码
 
+==这个 AngularJS 1.4.x 绕过通常需要用 Chrome/Chromium；Safari 或 Firefox 可能不生效==
 # 4. 漏洞利用
 
 ## Level 1
