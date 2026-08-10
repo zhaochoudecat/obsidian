@@ -141,8 +141,6 @@ curl -O http://dev.moodle.dsz/backup.tar.gz
 ![](assets/Pasted%20image%2020260110120429.png)
 https://github.com/p0dalirius/Moodle-webshell-plugin/tree/master?tab=readme-ov-file 上传插件，可以参考`github`上的视频
 
-![](assets/shell%E6%93%8D%E4%BD%9C.mp4)
-
 下载对应的插件后，点击上传，`Upload a file`
 ![](assets/Pasted%20image%2020260113222604.png)
 

