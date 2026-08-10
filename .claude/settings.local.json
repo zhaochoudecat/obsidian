@@ -26,7 +26,9 @@
       "Bash(curl -s -i \"http://1f3ba66d-6213-4166-bc56-2df4c0d4749d.node5.buuoj.cn:81/\")",
       "Bash(curl *)",
       "Read(//tmp/**)",
-      "Bash(pip3 install *)"
+      "Bash(pip3 install *)",
+      "Bash(npm --version)",
+      "Bash(npx open-kimi-ppt-skills *)"
     ]
   },
   "enabledPlugins": {
