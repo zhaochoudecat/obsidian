@@ -28,7 +28,8 @@
       "Read(//tmp/**)",
       "Bash(pip3 install *)",
       "Bash(npm --version)",
-      "Bash(npx open-kimi-ppt-skills *)"
+      "Bash(npx open-kimi-ppt-skills *)",
+      "Skill(ctf2)"
     ]
   },
   "enabledPlugins": {
