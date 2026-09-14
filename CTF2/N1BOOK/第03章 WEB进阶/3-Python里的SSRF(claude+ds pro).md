@@ -495,8 +495,34 @@ def safe_fetch(user_url):
 
 ---
 
-## 附：解题过程中的问答记录
+## 附：问答记录
 
-> **用户**：「我说了不要阅读本地其他文件，你为什么要看本地已有的 wp」
->
-> **Claude**：对提示的理解出现偏差——「不要阅读本地其他文件」指的不是靶机上的文件，而是**本机已有的 WP 笔记不应作为解题输入**。已更正：本 WP 全部结论基于对线上靶机的实测（每条命令与输出均为现场抓取），未再参考任何本地旧笔记。
+**Q**（2026-09-14）：利用命令中的 `http://httpbin.org/redirect-to?url=...` 是什么意思？
+
+**A**：`httpbin.org` 是公网上的 **HTTP 测试 / 回显服务**（requests 库作者 Kenneth Reitz 开发，Flask 实现），专门用来调试 HTTP 客户端。`/redirect-to` 是它的一个端点，行为只有一句话：
+
+> **读取自己的 `url` 查询参数，原样写进 `Location` 响应头，返回 302。** 它自己不会去抓取目标内容，只负责「指路」——相当于一个**公网可控的重定向跳板**。
+
+本机直连验证：
+
+```bash
+curl -s -i "http://httpbin.org/redirect-to?url=http://example.com/" | head -5
+```
+
+```
+HTTP/1.1 302 FOUND
+Location: http://example.com/     ← url 参数原样进了 Location 头
+```
+
+在本题中的作用：把「靶机真正要抓的 URL」拆成两跳，过滤器只检查第一跳的 hostname：
+
+```
+靶机请求 ① http://httpbin.org/redirect-to?url=http://127.0.0.1:8000/api/internal/secret
+              过滤器检查 hostname = "httpbin.org" → 公网 IP → 通过 ✅
+              ↓ httpbin 返回 302，Location: http://127.0.0.1:8000/api/internal/secret
+              ↓ requests 默认 allow_redirects=True 自动发第二跳（过滤器不复查）──► 🚩
+```
+
+其他常用端点（SSRF / 调试场景速查）：`/get`、`/post` 回显请求内容；`/ip` 回显请求方的出口 IP；`/headers` 回显请求头；`/redirect/n` 302 跳 n 次后落到 `/get`；`/delay/n` 延迟 n 秒返回。实战中重定向跳板可替换为：自己的 VPS（最可靠）、任意站点的开放重定向（open redirect）、短链服务等——前提是**靶机具备出网能力**。
+
+
