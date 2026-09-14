@@ -1,5 +1,5 @@
 ---
-title: "N1BOOK - Python里的SSRF"
+title: N1BOOK - Python里的SSRF
 date: 2026-09-11
 categories:
   - CTF
@@ -9,7 +9,6 @@ tags:
   - SSRF
   - Python
   - 黑名单绕过
-  - 0.0.0.0
 ---
 
 # 1. 题目分析
