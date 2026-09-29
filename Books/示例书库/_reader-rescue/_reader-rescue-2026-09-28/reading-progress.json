@@ -1,0 +1,32 @@
+{
+  "AI/NIPS-2017-attention-is-all-you-need-Paper.pdf": {
+    "pct": 0.1,
+    "percent": 10,
+    "lastRead": 1790583914211,
+    "block": 0
+  },
+  "Books/示例书库/Jekyll and Hyde.epub": {
+    "pct": 0.006006006006006006,
+    "percent": 1,
+    "lastRead": 1790584040152,
+    "cfi": "epubcfi(/6/2!/4,/2,/20/1:23)"
+  },
+  "Books/示例书库/Meditations.epub": {
+    "pct": 0.004004004004004004,
+    "percent": 0,
+    "lastRead": 1790584078871,
+    "cfi": "epubcfi(/6/4!/4,/2,/4/1:1152)"
+  },
+  "Books/示例书库/Alice in Wonderland.epub": {
+    "pct": 0.005005005005005005,
+    "percent": 1,
+    "lastRead": 1790584088089,
+    "cfi": "epubcfi(/6/2!/4,/2,/12/1:462)"
+  },
+  "Books/示例书库/01-先验唯心【观念】论.epub": {
+    "pct": 0.03303303303303303,
+    "percent": 3,
+    "lastRead": 1790584120016,
+    "cfi": "epubcfi(/6/10!/4,/10,/14/1:111)"
+  }
+}

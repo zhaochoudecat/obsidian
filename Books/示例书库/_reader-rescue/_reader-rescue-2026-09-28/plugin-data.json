@@ -1,0 +1,221 @@
+{
+  "settings": {
+    "language": "zh",
+    "booksFolder": "",
+    "noteTemplate": "",
+    "notesFolder": "",
+    "bookNotesFolder": "",
+    "calibreLibraryPath": "",
+    "calibreCalibredbPath": "",
+    "calibreImports": {},
+    "bookNoteTemplate": "",
+    "autoBookNote": true,
+    "quotesToBookNote": true,
+    "dataFolder": "",
+    "bookTemplates": {},
+    "exportColors": true,
+    "theme": "auto",
+    "libTheme": "auto",
+    "fontSize": 18,
+    "fontFamily": "zhuque",
+    "customFontFamily": "",
+    "customFontId": "",
+    "importedFonts": [],
+    "pageButtonsVisibility": "hover",
+    "lineHeight": 1.8,
+    "columns": "1",
+    "textAlign": "left",
+    "vAlign": "top",
+    "translateEnabled": false,
+    "translateTo": "zh-CN",
+    "bookNoteLinks": {
+      "AI/NIPS-2017-attention-is-all-you-need-Paper.pdf": "NIPS-2017-attention-is-all-you-need-Paper.md",
+      "Books/示例书库/Jekyll and Hyde.epub": "Jekyll and Hyde.md",
+      "Books/示例书库/Meditations.epub": "Meditations.md",
+      "Books/示例书库/Alice in Wonderland.epub": "Alice in Wonderland.md",
+      "Books/示例书库/01-先验唯心【观念】论.epub": "01-先验唯心【观念】论.md"
+    },
+    "locationMarks": [],
+    "bookNotePrompted": {
+      "AI/NIPS-2017-attention-is-all-you-need-Paper.pdf": true,
+      "Books/示例书库/Jekyll and Hyde.epub": true,
+      "Books/示例书库/Meditations.epub": true,
+      "Books/示例书库/Alice in Wonderland.epub": true,
+      "Books/示例书库/01-先验唯心【观念】论.epub": true
+    },
+    "coverFits": {},
+    "syncMode": "auto",
+    "libCategory": "all",
+    "readerAdvOpen": false,
+    "readerHistOpen": false,
+    "askNoteTitle": true,
+    "shortNoteTitles": true,
+    "defaultHlColor": "yellow",
+    "selectionShowLabels": false,
+    "selectionActions": null,
+    "bookTags": {},
+    "navMode": "buttons",
+    "timerEnabled": true,
+    "dailyGoalMin": 15,
+    "readingLog": {},
+    "lifetimeSeconds": 0,
+    "immersive": true,
+    "mobileTopInset": 0,
+    "onboarded": true,
+    "promptedRepaired": true,
+    "readingNoteLinksRepaired": true,
+    "manualExcerptSectionsMigrated": true,
+    "figuresShownByDefault": false,
+    "einkMode": false,
+    "aiCompanionVisible": false,
+    "aiEnabled": true,
+    "aiNeedsVerification": false,
+    "aiProvider": "deepseek",
+    "aiAssistant": "auto",
+    "aiSecret": "",
+    "aiKey": "",
+    "aiModel": "deepseek-v4-flash",
+    "aiBase": "",
+    "aiSecrets": {
+      "deepseek": "obsiidian"
+    },
+    "aiBases": {},
+    "aiModels": {
+      "deepseek": "deepseek-v4-flash"
+    },
+    "aiThinking": {
+      "deepseek": false
+    },
+    "aiCliEfforts": {},
+    "aiCliPaths": {},
+    "aiAcpPaths": {},
+    "aiInto": "中文",
+    "aiSystem": "",
+    "aiQuickPrompts": null,
+    "aiChatHistory": [
+      {
+        "id": "d35a39c9-a317-45c7-b93a-7ba3cffa2e61",
+        "title": "介绍这个小说",
+        "book": "Meditations.md",
+        "bookPath": "Books/示例书库/Meditations.epub",
+        "text": "MEDITATIONS",
+        "contextVersion": 1,
+        "turns": [
+          {
+            "role": "user",
+            "content": "介绍这个小说",
+            "context": {
+              "kind": "selection",
+              "label": "选文",
+              "text": "MEDITATIONS",
+              "page": ""
+            }
+          },
+          {
+            "role": "assistant",
+            "content": "《Meditations》通常不是一本“小说”，而是古罗马皇帝**马可·奥勒留**（Marcus Aurelius）写的一部哲学札记，中文常译作《沉思录》。它更像私人日记或自我劝勉的笔记，而不是有情节、人物和虚构叙事的小说。\n\n如果你看到的文件标题是《Meditations.md》，它很可能就是《沉思录》的文本或节选。其核心内容包括：\n\n- **斯多葛哲学**：强调区分“能控制的事”和“不能控制的事”。\n- **自我修养**：如何保持理性、节制、正义和勇气。\n- **面对生死与命运**：接受自然规律，减少恐惧和欲望带来的痛苦。\n- **责任与公共生活**：作为统治者、公民和人的义务。\n- **内心自由**：外界无法完全决定你的判断和品格。\n\n它没有统一的故事线，而是由许多短段落组成，像是马可·奥勒留写给自己的提醒。阅读时不必把它当作小说追情节，而可以把它看作一本关于如何生活、如何面对困境的哲学笔记。\n\n如果你愿意，我也可以根据你当前选中的具体段落，帮你解释那一段在说什么。"
+          }
+        ],
+        "updatedAt": 1790584082122
+      },
+      {
+        "id": "438bf056-f003-4bba-9e2b-040725da2ec7",
+        "title": "简单介绍这部小说",
+        "book": "Jekyll and Hyde.md",
+        "bookPath": "Books/示例书库/Jekyll and Hyde.epub",
+        "text": "Jekyll And Mr. Hyde",
+        "contextVersion": 1,
+        "updatedAt": 1790584041240,
+        "turns": [
+          {
+            "role": "user",
+            "content": "简单介绍这部小说",
+            "context": {
+              "kind": "selection",
+              "label": "选文",
+              "text": "Jekyll And Mr. Hyde",
+              "page": ""
+            }
+          },
+          {
+            "role": "assistant",
+            "content": "《Jekyll and Hyde》（《化身博士》）是苏格兰作家 **罗伯特·路易斯·史蒂文森**（Robert Louis Stevenson）于 1886 年发表的中篇小说，全名《Strange Case of Dr Jekyll and Mr Hyde》（《杰基尔博士与海德先生的奇异案件》）。\n\n**核心内容**\n\n- 主人公 **亨利·杰基尔博士**是一位受人尊敬的伦敦医生，他相信自己身上同时存在善与恶两面。\n- 他发明了一种药水，能把自己\"恶\"的一面分离出来，变成一个独立的人格——**爱德华·海德**。\n- 起初杰基尔还能自由切换，但海德逐渐变得强大、失控，犯下暴力罪行，最终杰基尔无法再变回自己，走向悲剧结局。\n\n**主要特点**\n\n- 属于**哥特小说**和**维多利亚时代**文学，带有悬疑、恐怖色彩。\n- 通过\"双重人格\"探讨人性中善与恶的共存，以及压抑欲望的危险。\n- 叙事结构巧妙：先以律师厄特森的视角展开谜团，最后才由杰基尔的自白揭示真相。\n\n**影响**\n\n\"Jekyll and Hyde\"已成为英语中形容**双重人格**或**表里不一**的常用典故，被大量改编为戏剧、电影和其他作品。\n\n如果你想深入某一章、某个人物或某个主题，可以告诉我具体段落。"
+          }
+        ]
+      }
+    ],
+    "bookNoteAppendPromptSeen": false,
+    "languagePicked": false,
+    "readMode": "pages",
+    "pageTurnAnimation": true,
+    "progressToFrontmatter": false,
+    "quoteTemplate": "",
+    "quoteBacklinks": true,
+    "quoteBacklinkLabel": "",
+    "noteOpenMode": "split",
+    "maxLineCh": 0,
+    "notesNextToBook": false,
+    "perDevice": false,
+    "deviceProfiles": {},
+    "lastSeenVersion": "4.4.2",
+    "whatsNewNote": true,
+    "chineseDefaultsMigrated": true,
+    "noteFolderRootSemanticsMigrated": true,
+    "iconBacklinksMigrated": true,
+    "readingNoteTitlesMigratedV4": true,
+    "cfiBacklinksMigrated": true,
+    "starterLibrary": {
+      "version": 1,
+      "folder": "Books/示例书库"
+    }
+  },
+  "progressBackups": {
+    "AI/NIPS-2017-attention-is-all-you-need-Paper.pdf": [
+      {
+        "pct": 0.2,
+        "percent": 20,
+        "lastRead": 1790583830230,
+        "ts": 1790583831759,
+        "block": 2
+      }
+    ],
+    "Books/示例书库/Jekyll and Hyde.epub": [
+      {
+        "pct": 0.007007007007007007,
+        "percent": 1,
+        "lastRead": 1790583916202,
+        "ts": 1790584023806,
+        "cfi": "epubcfi(/6/2!/4,/2,/20/1:23)"
+      }
+    ],
+    "Books/示例书库/Meditations.epub": [
+      {
+        "pct": 0.001001001001001001,
+        "percent": 0,
+        "lastRead": 1790584041260,
+        "ts": 1790584071250,
+        "cfi": "epubcfi(/6/2!/4,/2,/20/1:15)"
+      }
+    ],
+    "Books/示例书库/Alice in Wonderland.epub": [
+      {
+        "pct": 0.005005005005005005,
+        "percent": 1,
+        "lastRead": 1790584082138,
+        "ts": 1790584088089,
+        "cfi": "epubcfi(/6/2!/4,/2,/12/1:462)"
+      }
+    ],
+    "Books/示例书库/01-先验唯心【观念】论.epub": [
+      {
+        "pct": 0.001001001001001001,
+        "percent": 0,
+        "lastRead": 1790584108870,
+        "ts": 1790584110042,
+        "cfi": "epubcfi(/6/2!/4/2,,/2/2)"
+      }
+    ]
+  },
+  "highlightsBackups": {},
+  "lastBookPath": "Books/示例书库/01-先验唯心【观念】论.epub"
+}
